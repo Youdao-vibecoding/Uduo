@@ -4,7 +4,5 @@ timeout = 30
 exclude_loopback = true
 exclude = [
   '^[h]ttps://x\.com/[^/]+/status/\d+$',
-  '^[h]ttps://github\.com/ReffWu/softfold/releases/(latest/download|download)/.*$',
   '^[h]ttp://www\.apple\.com/DTDs/PropertyList-1\.0\.dtd$',
-  '^[h]ttps://softfold-telemetry\.reffwu\.workers\.dev/heartbeat$',
 ]

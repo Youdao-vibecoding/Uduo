@@ -13,7 +13,7 @@ else
   test_compiler=$(xcrun --find swiftc)
 fi
 
-test_arguments=(-parse-as-library)
+test_arguments=(-parse-as-library -target "$(uname -m)-apple-macosx14.0")
 if [[ -n "${SDKROOT:-}" ]]; then
   test_arguments+=(-sdk "$SDKROOT")
 elif [[ -d /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk ]]; then
