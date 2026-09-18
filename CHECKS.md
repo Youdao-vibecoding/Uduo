@@ -1,27 +1,37 @@
-# Repository checks
+# Check Uduo
 
-Every push to `main` and every pull request runs these checks. No test cases or test jobs are included. Releases are built, signed and notarized locally, as described in [RELEASE.md](RELEASE.md).
+Run the checks that match the change, then verify the built app. A successful compile does not establish sensor compatibility or prove the physical effect feels smooth.
 
-| Files | Checks |
-| --- | --- |
-| Every tracked text file, including dotfiles and lockfiles | No comments or docstrings, no literal or encoded em dashes, explicit language classification |
-| JavaScript, TypeScript, CSS, HTML and JSON | [Biome](https://biomejs.dev/) recommended lint rules and formatting |
-| Swift | [swift-format](https://github.com/swiftlang/swift-format) lint and compilation |
-| Metal | Shader compilation and comment policy |
-| Shell | [ShellCheck](https://www.shellcheck.net/) |
-| Python | [Ruff](https://docs.astral.sh/ruff/) lint and formatting |
-| Workflows and YAML | [actionlint](https://github.com/rhysd/actionlint) and [yamllint](https://yamllint.readthedocs.io/) |
-| JSON, TOML and Xcode XML | Parsing, plus plist validation on macOS |
-| Links in every tracked text file | [Lychee](https://lychee.cli.rs/) local-file and external-link checks |
-| PNG images, including the app icon | File signature validation |
+## Motion and lifecycle tests
 
-The file list comes from `git ls-files`, not a source-folder glob. Unknown file types and unclassified binary files fail the policy check. The generated npm lockfile is parsed and policy-checked, while Biome leaves its generated formatting intact.
+```sh
+bash Tests/run-motion-tests.sh
+bash Tests/run-wake-tests.sh
+```
 
-Comments in Markdown code fences and workflow shell blocks are checked too. Executable shebangs and compiler preprocessor directives remain allowed because they affect execution. Prose documentation and string literals are not code comments.
+The motion suite covers 14 cases, including opening, closing, direction reversal, sensor cadence, and the 25–120° baseline limits. The callback suite checks 34 lifecycle conditions against the gate extracted from `LiveDesktop.swift`, including rejection of readings from an earlier session.
 
-The link checker excludes historical X posts that require interactive access, release download links that only exist after a release is published, the Apple plist DTD identifier, and the usage heartbeat endpoint, which only accepts POST requests. The exact exclusions are in `.lychee.toml`.
+`SWIFTC` and `SDKROOT` may be set to select the compiler and SDK. A full Xcode installation is needed to build the application:
 
-## Run locally
+```sh
+bash scripts/build.sh
+```
+
+## Interface and hardware checks
+
+- Grant Screen Recording, enable the effect, and verify that the active state is distinct from waiting or permission errors.
+- Partly close and reopen the lid; pause, reverse direction, and repeat with both pause behaviors.
+- Click and drag the angle ruler; confirm its saved value stays within 25–120°. Test arrow keys, Shift + arrow keys, Home, End, and accessibility input.
+- Play the illustrated demonstration, return to live readings early, and let a second demonstration finish. Confirm that neither run changes the saved angle.
+- Drag card whitespace, then use its buttons, switches, and the ruler. Confirm that decorative motion does not reorder cards or capture control gestures. Repeat with Reduce Motion enabled.
+- Close and reopen the controls; quit from the app and launch again. Check Dock and menu bar visibility preferences.
+- Check sleep/wake, fullscreen Spaces, and a configuration with an external display. The overlay should wait when the built-in display is unavailable.
+
+Record the hardware and macOS version alongside the observations. Synthetic timing is not physical lid-to-screen latency; do not turn a local measurement into a claim about all Macs.
+
+## Repository checks
+
+The repository includes the upstream tracked-file check tools. Their scope includes text-file policy, Swift and shell linting, Python formatting, configuration parsing, and link validation.
 
 ```sh
 python3 -m venv .venv
@@ -32,8 +42,10 @@ brew install actionlint shellcheck lychee yamllint swift-format
 npm run check
 npm run check:native
 npm run check:links
-make build
-xcrun -sdk macosx metal -c Resources/Fold.metal -o build/Fold.air
 ```
 
-Stage newly added files before running checks so they are included in the tracked-file list.
+These tools inspect `git ls-files`; newly added files must be included in Git's index to be checked. Tool availability and the CI environment can differ from a developer's Mac. Report the checks actually run, and report failures or unavailable tools explicitly.
+
+The text policy excludes comments and docstrings in code, Markdown comments, and em dashes. It also requires explicit classification of tracked file types. The source tree retains this upstream policy; it is not a claim that every upstream CI check has passed for a release.
+
+Release artifacts need separate checks described in [RELEASE.md](RELEASE.md).

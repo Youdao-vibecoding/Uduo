@@ -64,6 +64,10 @@ def text_files():
             if not data.startswith(b"\x89PNG\r\n\x1a\n"):
                 raise ValueError(f"{path}: invalid image signature")
             continue
+        if path.suffix == ".gif":
+            if data[:6] not in {b"GIF87a", b"GIF89a"}:
+                raise ValueError(f"{path}: invalid GIF signature")
+            continue
         try:
             yield path, data.decode("utf-8")
         except UnicodeDecodeError as error:

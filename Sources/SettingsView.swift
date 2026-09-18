@@ -3,16 +3,15 @@ import SwiftUI
 struct PreferencesCard: View {
   @ObservedObject var updater: Updater
   @State private var language = AppLanguage.current
-  @AppStorage(DockIcon.key) private var showsInDock = false
+  @AppStorage(DockIcon.key) private var showsInDock = LocalEdition.isLocal
   @AppStorage("showsMenuBarIcon") private var showsMenuBarIcon = true
-  @AppStorage(Heartbeat.key) private var sharesUsageStatistics = true
 
   var body: some View {
-    SettingsGroup {
+    SettingsGroup(title: String(localized: "General")) {
       SettingsRow(
         "menubar.rectangle", tint: .gray, title: String(localized: "Show in menu bar"),
         subtitle: showsMenuBarIcon
-          ? nil : String(localized: "Open Softfold again to come back here.")
+          ? nil : String(localized: "Open Uduo again to come back here.")
       ) {
         Toggle("Show in menu bar", isOn: $showsMenuBarIcon)
           .toggleStyle(.switch)
@@ -29,7 +28,7 @@ struct PreferencesCard: View {
       SettingsRow(
         "globe", tint: .indigo, title: String(localized: "Language"),
         subtitle: language == AppLanguage.atLaunch
-          ? nil : String(localized: "Relaunch Softfold to switch languages.")
+          ? nil : String(localized: "Relaunch Uduo to switch languages.")
       ) {
         if language != AppLanguage.atLaunch {
           Button("Relaunch", action: AppLanguage.relaunch)
@@ -53,25 +52,6 @@ struct PreferencesCard: View {
         .fixedSize()
         .controlSize(.small)
       }
-      SettingsDivider()
-      SettingsRow(
-        "arrow.triangle.2.circlepath", tint: .green,
-        title: String(localized: "Install updates automatically")
-      ) {
-        Toggle("Install updates automatically", isOn: $updater.installsAutomatically)
-          .toggleStyle(.switch)
-          .labelsHidden()
-      }
-      SettingsDivider()
-      SettingsRow(
-        "chart.bar.fill", tint: .blue, title: String(localized: "Share anonymous usage statistics"),
-        subtitle: String(
-          localized: "Counts active Macs once a day. Nothing from your screen is sent.")
-      ) {
-        Toggle("Share anonymous usage statistics", isOn: $sharesUsageStatistics)
-          .toggleStyle(.switch)
-          .labelsHidden()
-      }
     }
   }
 }
@@ -81,7 +61,8 @@ enum DockIcon {
 
   static func apply() {
     let policy: NSApplication.ActivationPolicy =
-      UserDefaults.standard.bool(forKey: key) ? .regular : .accessory
+      (UserDefaults.standard.object(forKey: key) as? Bool ?? LocalEdition.isLocal)
+      ? .regular : .accessory
     guard NSApp.activationPolicy() != policy else { return }
     NSApp.setActivationPolicy(policy)
     DispatchQueue.main.async {
@@ -140,7 +121,7 @@ struct AboutView: View {
         .padding(.top, 40)
         .padding(.bottom, 6)
         .accessibilityHidden(true)
-      Text(verbatim: "Softfold")
+      Text(verbatim: LocalEdition.name)
         .font(.system(size: 24, weight: .semibold))
         .padding(.top, 8)
       Text("Your desktop follows your lid.")
@@ -152,7 +133,7 @@ struct AboutView: View {
         .padding(.top, 6)
       HStack(spacing: 6) {
         Text("Version \(versionLabel)")
-        if let project = URL(string: "https://github.com/ReffWu/softfold") {
+        if let project = LocalEdition.projectURL {
           Text(verbatim: "·")
           Link(destination: project) {
             HStack(spacing: 3) {
@@ -166,7 +147,7 @@ struct AboutView: View {
       .font(.system(size: 11))
       .foregroundStyle(.secondary)
       .padding(.top, 20)
-      Text(verbatim: "© 2026 Reff Wu")
+      Text(verbatim: "© 2026 Uduo")
         .font(.system(size: 11))
         .foregroundStyle(.tertiary)
         .padding(.top, 4)
@@ -198,92 +179,6 @@ private struct AboutWindowChrome: NSViewRepresentable {
 }
 
 @MainActor
-final class MoreApps: ObservableObject {
-  static let shared = MoreApps()
-
-  struct Entry: Decodable, Identifiable, Equatable {
-    let id: String
-    let bundleID: String
-    let name: String
-    let icon: URL
-    let page: URL
-    let tagline: [String: String]
-
-    var localizedTagline: String {
-      let language = Bundle.main.preferredLocalizations.first ?? "en"
-      return tagline[language] ?? tagline["en"] ?? ""
-    }
-  }
-
-  private struct Catalog: Decodable {
-    let apps: [Entry]
-  }
-
-  private static let catalogURL = URL(
-    string: "https://reffwu.github.io/apps/catalog.json")
-  private static let freshFor: TimeInterval = 24 * 60 * 60
-
-  @Published private(set) var entries: [Entry] = []
-  @Published private(set) var icons: [String: NSImage] = [:]
-
-  private var isLoading = false
-  private let directory: URL
-
-  private init() {
-    let caches = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
-    directory =
-      caches
-      .appendingPathComponent(Bundle.main.bundleIdentifier ?? "com.reffwu.softfold")
-      .appendingPathComponent("MoreApps")
-    showCached()
-  }
-
-  private var catalogFile: URL { directory.appendingPathComponent("catalog.json") }
-
-  private func iconFile(for entry: Entry) -> URL {
-    directory.appendingPathComponent("\(entry.id).png")
-  }
-
-  func refreshIfStale() {
-    guard !isLoading, let url = Self.catalogURL else { return }
-    let modified = (try? catalogFile.resourceValues(forKeys: [.contentModificationDateKey]))?
-      .contentModificationDate
-    if let modified, Date().timeIntervalSince(modified) < Self.freshFor { return }
-
-    isLoading = true
-    Task {
-      defer { isLoading = false }
-      guard let (data, response) = try? await URLSession.shared.data(from: url),
-        (response as? HTTPURLResponse)?.statusCode == 200,
-        let catalog = try? JSONDecoder().decode(Catalog.self, from: data)
-      else { return }
-      try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-      try? data.write(to: catalogFile)
-      for entry in catalog.apps where entry.bundleID != Bundle.main.bundleIdentifier {
-        if let (icon, _) = try? await URLSession.shared.data(from: entry.icon),
-          NSImage(data: icon) != nil
-        {
-          try? icon.write(to: iconFile(for: entry))
-        }
-      }
-      showCached()
-    }
-  }
-
-  private func showCached() {
-    guard let data = try? Data(contentsOf: catalogFile),
-      let catalog = try? JSONDecoder().decode(Catalog.self, from: data)
-    else { return }
-    let others = catalog.apps.filter { $0.bundleID != Bundle.main.bundleIdentifier }
-    entries = others
-    icons = Dictionary(
-      uniqueKeysWithValues: others.compactMap { entry in
-        NSImage(contentsOf: iconFile(for: entry)).map { (entry.id, $0) }
-      })
-  }
-}
-
-@MainActor
 final class StarRequest: ObservableObject {
   static let shared = StarRequest()
   @Published private(set) var isVisible = false
@@ -304,7 +199,7 @@ final class StarRequest: ObservableObject {
   }
 
   func star() {
-    if let project = URL(string: "https://github.com/ReffWu/softfold") {
+    if let project = LocalEdition.projectURL {
       NSWorkspace.shared.open(project)
     }
     close()
@@ -317,7 +212,7 @@ final class StarRequest: ObservableObject {
 
   private func update() {
     isVisible =
-      !defaults.bool(forKey: "starAnswered") && defaults.integer(forKey: "foldCount") >= 5
+      LocalEdition.projectURL != nil && !defaults.bool(forKey: "starAnswered") && defaults.integer(forKey: "foldCount") >= 5
       && (defaults.stringArray(forKey: "foldDays") ?? []).count >= 2
   }
 }
@@ -327,7 +222,7 @@ struct StarRow: View {
 
   var body: some View {
     SettingsRow(
-      "star.fill", tint: .yellow, title: String(localized: "Enjoying Softfold?"),
+      "star.fill", tint: .yellow, title: String(localized: "Enjoying Uduo?"),
       subtitle: String(
         localized: "It’s free and open source. A star on GitHub helps more people find it.")
     ) {
@@ -345,59 +240,5 @@ struct StarRow: View {
       .accessibilityLabel(Text("Close"))
       .help(Text("Close"))
     }
-  }
-}
-
-struct MoreAppsCard: View {
-  @ObservedObject private var store = MoreApps.shared
-
-  private static let icon: CGFloat = 40
-
-  var body: some View {
-    Group {
-      if !store.entries.isEmpty {
-        SettingsGroup(title: String(localized: "More from Reff Wu")) {
-          ForEach(Array(store.entries.enumerated()), id: \.element.id) { index, entry in
-            if index > 0 { SettingsDivider(inset: 65) }
-            row(entry)
-          }
-        }
-      }
-    }
-  }
-
-  private func row(_ entry: MoreApps.Entry) -> some View {
-    let installed = NSWorkspace.shared.urlForApplication(withBundleIdentifier: entry.bundleID)
-    return HStack(spacing: 11) {
-      Group {
-        if let icon = store.icons[entry.id] {
-          Image(nsImage: icon).resizable().interpolation(.high)
-        } else {
-          Color.primary.opacity(0.08)
-        }
-      }
-      .frame(width: Self.icon * 1024 / 980, height: Self.icon * 1024 / 980)
-      .frame(width: Self.icon, height: Self.icon)
-      .clipShape(RoundedRectangle(cornerRadius: Self.icon * 262 / 980, style: .circular))
-      VStack(alignment: .leading, spacing: 2) {
-        Text(verbatim: entry.name).font(.system(size: 13))
-        Text(verbatim: entry.localizedTagline)
-          .font(.system(size: 11))
-          .foregroundStyle(.secondary)
-          .fixedSize(horizontal: false, vertical: true)
-      }
-      Spacer(minLength: 10)
-      Button(installed == nil ? String(localized: "Get") : String(localized: "Open")) {
-        if let installed {
-          NSWorkspace.shared.openApplication(
-            at: installed, configuration: NSWorkspace.OpenConfiguration())
-        } else {
-          NSWorkspace.shared.open(entry.page)
-        }
-      }
-      .controlSize(.small)
-    }
-    .padding(.horizontal, 14)
-    .padding(.vertical, 9)
   }
 }

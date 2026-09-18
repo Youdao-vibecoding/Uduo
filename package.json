@@ -1,5 +1,5 @@
 {
-  "name": "softfold-checks",
+  "name": "uduo-checks",
   "private": true,
   "scripts": {
     "check": "python3 scripts/check.py policy && python3 scripts/check.py biome",

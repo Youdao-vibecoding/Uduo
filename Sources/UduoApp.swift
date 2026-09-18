@@ -1,18 +1,47 @@
 import AppKit
 import Carbon.HIToolbox
-import Sparkle
 import SwiftUI
 
+enum LocalEdition {
+  static let isLocal = Bundle.main.object(forInfoDictionaryKey: "SoftfoldLocalBuild") as? Bool ?? false
+  static let name = "Uduo"
+  static var projectURL: URL? {
+    (Bundle.main.object(forInfoDictionaryKey: "UduoProjectURL") as? String).flatMap(URL.init(string:))
+  }
+  static var shortcut: String { isLocal ? "⌃⌥⇧H" : "⌃⌥H" }
+  static var hotKeyModifiers: UInt32 {
+    UInt32(controlKey | optionKey | (isLocal ? shiftKey : 0))
+  }
+}
+
 @main
-struct SoftfoldApp: App {
+struct UduoApp: App {
   @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate
-  @StateObject private var desktop = LiveDesktop()
+  @StateObject private var desktop: LiveDesktop
   @StateObject private var updater = Updater()
   @AppStorage("showsMenuBarIcon") private var showsMenuBarIcon = true
 
+  init() {
+    let defaults = UserDefaults.standard
+    if !defaults.bool(forKey: "migratedSoftfoldSettings") {
+      let previous = defaults.persistentDomain(forName: "com.reffwu.softfold.local") ?? [:]
+      let keys = [
+        "openAngle", "focusesWhenHeld", "showsInDock", "showsMenuBarIcon",
+        "AppleLanguages", "effectEnabled", "setUpOnFirstEnable",
+      ]
+      for key in keys {
+        if defaults.object(forKey: key) == nil, let value = previous[key] {
+          defaults.set(value, forKey: key)
+        }
+      }
+      defaults.set(true, forKey: "migratedSoftfoldSettings")
+    }
+    _desktop = StateObject(wrappedValue: LiveDesktop())
+  }
+
   var body: some Scene {
-    Window("Softfold", id: "main") {
-      MainView(desktop: desktop, updater: updater)
+    Window(LocalEdition.name, id: "main") {
+      MainView(desktop: desktop, updater: updater, delegate: delegate)
         .onAppear {
           delegate.onTerminate = { desktop.shutDown() }
           delegate.installToggleHotKey {
@@ -26,10 +55,12 @@ struct SoftfoldApp: App {
     .commands {
       WindowCommands()
       CommandGroup(after: .appInfo) {
-        Button("Check for Updates…") { updater.checkForUpdates() }
+        if !LocalEdition.isLocal {
+          Button("Check for Updates…") { updater.checkForUpdates() }
+        }
       }
     }
-    Window("About Softfold", id: "about") {
+    Window("About \(LocalEdition.name)", id: "about") {
       AboutView()
     }
     .windowStyle(.hiddenTitleBar)
@@ -39,7 +70,8 @@ struct SoftfoldApp: App {
       MenuBarPanel(desktop: desktop, updater: updater)
     } label: {
       Image(desktop.isActive ? "MenuBarIconActive" : "MenuBarIcon")
-        .accessibilityLabel("Softfold")
+        .renderingMode(.template)
+        .accessibilityLabel(Text(verbatim: LocalEdition.name))
     }
     .menuBarExtraStyle(.window)
   }
@@ -48,17 +80,20 @@ struct SoftfoldApp: App {
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
   var onTerminate: (() -> Void)?
+  var onReopen: (() -> Void)?
   private var toggleHotKey: EventHotKeyRef?
   private var hotKeyHandler: EventHandlerRef?
 
   func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
 
-  func applicationWillFinishLaunching(_ notification: Notification) {
-    DockIcon.apply()
+  func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+    guard let onReopen else { return true }
+    onReopen()
+    return false
   }
 
-  func applicationDidFinishLaunching(_ notification: Notification) {
-    Heartbeat.start()
+  func applicationWillFinishLaunching(_ notification: Notification) {
+    DockIcon.apply()
   }
 
   func applicationWillTerminate(_ notification: Notification) {
@@ -88,7 +123,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
     var hotKey: EventHotKeyRef?
     let hotKeyStatus = RegisterEventHotKey(
-      UInt32(kVK_ANSI_H), UInt32(controlKey | optionKey),
+      UInt32(kVK_ANSI_H), LocalEdition.hotKeyModifiers,
       EventHotKeyID(signature: OSType(0x484E_4745), id: 1), GetApplicationEventTarget(), 0,
       &hotKey)
     guard hotKeyStatus == noErr else {
@@ -105,7 +140,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   private func showHotKeyError(_ status: OSStatus) {
     let alert = NSAlert()
     alert.messageText = String(localized: "Keyboard shortcut unavailable")
-    alert.informativeText = String(localized: "Softfold could not register ⌃⌥H (error \(status)).")
+    alert.informativeText = "\(LocalEdition.name): \(LocalEdition.shortcut) (\(status))"
     alert.alertStyle = .warning
     alert.runModal()
   }
@@ -116,7 +151,7 @@ struct WindowCommands: Commands {
 
   var body: some Commands {
     CommandGroup(replacing: .appInfo) {
-      Button("About Softfold") {
+      Button("About Uduo") {
         openWindow(id: "about")
         NSApp.activate(ignoringOtherApps: true)
       }
@@ -155,13 +190,13 @@ struct MenuBarPanel: View {
           leading: { SettingsIcon(symbol: "power", tint: desktop.isActive ? .green : .gray) }
         ) {
           Toggle(
-            "Turn Softfold on or off",
+            "Turn Uduo on or off",
             isOn: Binding(get: { desktop.isEnabled }, set: { desktop.setEnabled($0) })
           )
           .toggleStyle(.switch)
           .labelsHidden()
           .disabled(desktop.isStarting)
-          .help(Text("⌃⌥H"))
+          .help(Text(verbatim: LocalEdition.shortcut))
         }
         SettingsDivider()
         SettingsRow(
@@ -212,12 +247,14 @@ struct MenuBarPanel: View {
           NSApp.activate(ignoringOtherApps: true)
         }
         .keyboardShortcut(",")
-        PanelAction(
-          symbol: "arrow.triangle.2.circlepath", title: String(localized: "Check for Updates…")
-        ) {
-          updater.checkForUpdates()
+        if !LocalEdition.isLocal {
+          PanelAction(
+            symbol: "arrow.triangle.2.circlepath", title: String(localized: "Check for Updates…")
+          ) {
+            updater.checkForUpdates()
+          }
         }
-        PanelAction(symbol: "power", title: String(localized: "Quit Softfold"), shortcut: "⌘Q") {
+        PanelAction(symbol: "power", title: String(localized: "Quit Uduo"), shortcut: "⌘Q") {
           NSApp.terminate(nil)
         }
         .keyboardShortcut("q")
@@ -283,100 +320,8 @@ extension View {
 }
 
 @MainActor
-final class Updater: NSObject, ObservableObject, SPUUpdaterDelegate {
-  private var controller: SPUStandardUpdaterController?
-  @Published var installsAutomatically = true {
-    didSet { controller?.updater.automaticallyDownloadsUpdates = installsAutomatically }
-  }
+final class Updater: ObservableObject {
+  @Published var installsAutomatically = false
 
-  override init() {
-    super.init()
-    let controller = SPUStandardUpdaterController(
-      startingUpdater: true, updaterDelegate: self, userDriverDelegate: nil)
-    controller.updater.automaticallyChecksForUpdates = true
-    self.controller = controller
-    installsAutomatically = controller.updater.automaticallyDownloadsUpdates
-  }
-
-  func checkForUpdates() {
-    NSApp.activate(ignoringOtherApps: true)
-    controller?.checkForUpdates(nil)
-  }
-
-  nonisolated func updater(
-    _ updater: SPUUpdater, willInstallUpdateOnQuit item: SUAppcastItem,
-    immediateInstallationBlock: @escaping () -> Void
-  ) -> Bool {
-    DispatchQueue.main.async { immediateInstallationBlock() }
-    return true
-  }
-}
-
-@MainActor
-enum Heartbeat {
-  static let key = "sharesUsageStatistics"
-  private static let endpoint = URL(
-    string: "https://softfold-telemetry.reffwu.workers.dev/heartbeat")!
-  private static var sending = false
-
-  static func start() {
-    UserDefaults.standard.register(defaults: [key: true])
-    send()
-    Task {
-      while true {
-        try? await Task.sleep(for: .seconds(3600))
-        send()
-      }
-    }
-  }
-
-  static func recordFold() {
-    UserDefaults.standard.set(today, forKey: "foldDay")
-    send()
-  }
-
-  private static var today: String {
-    Date().ISO8601Format(.iso8601Date(timeZone: TimeZone(identifier: "UTC")!))
-  }
-
-  private static func send() {
-    let defaults = UserDefaults.standard
-    let day = today
-    let folded = defaults.string(forKey: "foldDay") == day
-    guard defaults.bool(forKey: key), !sending,
-      defaults.string(forKey: "heartbeatDay") != day
-        || (folded && defaults.string(forKey: "heartbeatFoldDay") != day)
-    else { return }
-    let install = defaults.string(forKey: "installID") ?? UUID().uuidString
-    defaults.set(install, forKey: "installID")
-    let system = ProcessInfo.processInfo.operatingSystemVersion
-    let body: [String: Any] = [
-      "install_id": install,
-      "app_version": Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "",
-      "os_version": "\(system.majorVersion).\(system.minorVersion).\(system.patchVersion)",
-      "model": model,
-      "folded": folded,
-    ]
-    var request = URLRequest(url: endpoint)
-    request.httpMethod = "POST"
-    request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-    request.httpBody = try? JSONSerialization.data(withJSONObject: body)
-    sending = true
-    Task {
-      defer { sending = false }
-      guard let (_, response) = try? await URLSession.shared.data(for: request),
-        (response as? HTTPURLResponse)?.statusCode == 204
-      else { return }
-      defaults.set(day, forKey: "heartbeatDay")
-      if folded { defaults.set(day, forKey: "heartbeatFoldDay") }
-    }
-  }
-
-  private static var model: String {
-    var size = 0
-    sysctlbyname("hw.model", nil, &size, nil, 0)
-    var value = [CChar](repeating: 0, count: max(size, 1))
-    sysctlbyname("hw.model", &value, &size, nil, 0)
-    return String(cString: value)
-  }
+  func checkForUpdates() {}
 }

@@ -10,36 +10,6 @@
 	<string>56</string>
 	<key>objects</key>
 	<dict>
-		<key>5F1A9C2E7B3D4E6F8A0B1C21</key>
-		<dict>
-			<key>isa</key>
-			<string>XCRemoteSwiftPackageReference</string>
-			<key>repositoryURL</key>
-			<string>https://github.com/sparkle-project/Sparkle</string>
-			<key>requirement</key>
-			<dict>
-				<key>kind</key>
-				<string>upToNextMajorVersion</string>
-				<key>minimumVersion</key>
-				<string>2.6.0</string>
-			</dict>
-		</dict>
-		<key>5F1A9C2E7B3D4E6F8A0B1C22</key>
-		<dict>
-			<key>isa</key>
-			<string>XCSwiftPackageProductDependency</string>
-			<key>package</key>
-			<string>5F1A9C2E7B3D4E6F8A0B1C21</string>
-			<key>productName</key>
-			<string>Sparkle</string>
-		</dict>
-		<key>5F1A9C2E7B3D4E6F8A0B1C23</key>
-		<dict>
-			<key>isa</key>
-			<string>PBXBuildFile</string>
-			<key>productRef</key>
-			<string>5F1A9C2E7B3D4E6F8A0B1C22</string>
-		</dict>
 		<key>D07A26CE17EABF394176C507</key>
 		<dict>
 			<key>isa</key>
@@ -65,7 +35,7 @@
 			<key>lastKnownFileType</key>
 			<string>sourcecode.swift</string>
 			<key>path</key>
-			<string>SoftfoldApp.swift</string>
+			<string>UduoApp.swift</string>
 			<key>sourceTree</key>
 			<string>&lt;group&gt;</string>
 		</dict>
@@ -147,6 +117,24 @@
 			<string>PBXBuildFile</string>
 			<key>fileRef</key>
 			<string>5A1C0E7B9D2F4A6E8B3C1D07</string>
+		</dict>
+		<key>01B36F29A8D24E37C15940F6</key>
+		<dict>
+			<key>isa</key>
+			<string>PBXFileReference</string>
+			<key>lastKnownFileType</key>
+			<string>sourcecode.swift</string>
+			<key>path</key>
+			<string>FoldShowcase.swift</string>
+			<key>sourceTree</key>
+			<string>&lt;group&gt;</string>
+		</dict>
+		<key>B582A7D04EC9312F680A49C5</key>
+		<dict>
+			<key>isa</key>
+			<string>PBXBuildFile</string>
+			<key>fileRef</key>
+			<string>01B36F29A8D24E37C15940F6</string>
 		</dict>
 		<key>2B7D4E1A6C3F5089AD41E2C3</key>
 		<dict>
@@ -250,8 +238,11 @@
 				<string>75017C803F3BD9BCA2AD760F</string>
 				<string>4A57EFA62E37A174C03C000F</string>
 				<string>5A1C0E7B9D2F4A6E8B3C1D07</string>
+				<string>01B36F29A8D24E37C15940F6</string>
 				<string>2B7D4E1A6C3F5089AD41E2C3</string>
 				<string>EEDE96C56CBAC202420A47BC</string>
+				<string>0A49E055FA298F68A5DD983F</string>
+				<string>3726F393F59D8A5643CBE380</string>
 			</array>
 			<key>path</key>
 			<string>Sources</string>
@@ -293,7 +284,7 @@
 			<key>includeInIndex</key>
 			<string>0</string>
 			<key>path</key>
-			<string>Softfold.app</string>
+			<string>Uduo.app</string>
 			<key>sourceTree</key>
 			<string>BUILT_PRODUCTS_DIR</string>
 		</dict>
@@ -338,8 +329,11 @@
 				<string>4F87324F1438ABED37B95379</string>
 				<string>DAEA9D08F6B5E79A226FC00D</string>
 				<string>7E2B4C6D8F0A1B3C5D7E9F11</string>
+				<string>B582A7D04EC9312F680A49C5</string>
 				<string>9C0F3A5B7D1E2648BF05A731</string>
 				<string>289C8D3C22097DA2A314830F</string>
+				<string>F1B63AE2DB2C93606E2419C0</string>
+				<string>ED9B1A5A888A3F82158478BA</string>
 			</array>
 			<key>runOnlyForDeploymentPostprocessing</key>
 			<string>0</string>
@@ -366,9 +360,7 @@
 			<key>buildActionMask</key>
 			<string>2147483647</string>
 			<key>files</key>
-			<array>
-				<string>5F1A9C2E7B3D4E6F8A0B1C23</string>
-			</array>
+			<array/>
 			<key>runOnlyForDeploymentPostprocessing</key>
 			<string>0</string>
 		</dict>
@@ -403,11 +395,11 @@
 			<key>buildSettings</key>
 			<dict>
 				<key>PRODUCT_NAME</key>
-				<string>Softfold</string>
+				<string>Uduo</string>
 				<key>EXECUTABLE_NAME</key>
-				<string>Softfold</string>
+				<string>Uduo</string>
 				<key>PRODUCT_BUNDLE_IDENTIFIER</key>
-				<string>com.reffwu.softfold</string>
+				<string>app.uduo.mac</string>
 				<key>ASSETCATALOG_COMPILER_APPICON_NAME</key>
 				<string>AppIcon</string>
 				<key>INFOPLIST_FILE</key>
@@ -431,6 +423,8 @@
 					<string>$(inherited)</string>
 					<string>@executable_path/../Frameworks</string>
 				</array>
+				<key>DEVELOPMENT_TEAM</key>
+				<string></string>
 			</dict>
 		</dict>
 		<key>00F209874A1F7309F6DCEAA7</key>
@@ -464,11 +458,11 @@
 			<key>buildSettings</key>
 			<dict>
 				<key>PRODUCT_NAME</key>
-				<string>Softfold</string>
+				<string>Uduo</string>
 				<key>EXECUTABLE_NAME</key>
-				<string>Softfold</string>
+				<string>Uduo</string>
 				<key>PRODUCT_BUNDLE_IDENTIFIER</key>
-				<string>com.reffwu.softfold</string>
+				<string>app.uduo.mac</string>
 				<key>ASSETCATALOG_COMPILER_APPICON_NAME</key>
 				<string>AppIcon</string>
 				<key>INFOPLIST_FILE</key>
@@ -478,9 +472,9 @@
 				<key>CODE_SIGN_STYLE</key>
 				<string>Manual</string>
 				<key>CODE_SIGN_IDENTITY</key>
-				<string>Developer ID Application</string>
+				<string>-</string>
 				<key>DEVELOPMENT_TEAM</key>
-				<string>37V2HFG7YT</string>
+				<string></string>
 				<key>ENABLE_APP_SANDBOX</key>
 				<string>NO</string>
 				<key>ENABLE_HARDENED_RUNTIME</key>
@@ -541,13 +535,11 @@
 			<key>dependencies</key>
 			<array/>
 			<key>name</key>
-			<string>Softfold</string>
+			<string>Uduo</string>
 			<key>packageProductDependencies</key>
-			<array>
-				<string>5F1A9C2E7B3D4E6F8A0B1C22</string>
-			</array>
+			<array/>
 			<key>productName</key>
-			<string>Softfold</string>
+			<string>Uduo</string>
 			<key>productReference</key>
 			<string>38A007151ABE87CC01A5B6E9</string>
 			<key>productType</key>
@@ -593,9 +585,7 @@
 				<string>zh-Hant</string>
 			</array>
 			<key>packageReferences</key>
-			<array>
-				<string>5F1A9C2E7B3D4E6F8A0B1C21</string>
-			</array>
+			<array/>
 			<key>mainGroup</key>
 			<string>B28B7AF69320201D1CF206EB</string>
 			<key>productRefGroup</key>
@@ -608,6 +598,42 @@
 			<array>
 				<string>0E8A3AD980EC179856012B7E</string>
 			</array>
+		</dict>
+		<key>0A49E055FA298F68A5DD983F</key>
+		<dict>
+			<key>isa</key>
+			<string>PBXFileReference</string>
+			<key>lastKnownFileType</key>
+			<string>sourcecode.swift</string>
+			<key>path</key>
+			<string>AngleRuler.swift</string>
+			<key>sourceTree</key>
+			<string>&lt;group&gt;</string>
+		</dict>
+		<key>F1B63AE2DB2C93606E2419C0</key>
+		<dict>
+			<key>isa</key>
+			<string>PBXBuildFile</string>
+			<key>fileRef</key>
+			<string>0A49E055FA298F68A5DD983F</string>
+		</dict>
+		<key>3726F393F59D8A5643CBE380</key>
+		<dict>
+			<key>isa</key>
+			<string>PBXFileReference</string>
+			<key>lastKnownFileType</key>
+			<string>sourcecode.swift</string>
+			<key>path</key>
+			<string>JellyCard.swift</string>
+			<key>sourceTree</key>
+			<string>&lt;group&gt;</string>
+		</dict>
+		<key>ED9B1A5A888A3F82158478BA</key>
+		<dict>
+			<key>isa</key>
+			<string>PBXBuildFile</string>
+			<key>fileRef</key>
+			<string>3726F393F59D8A5643CBE380</string>
 		</dict>
 	</dict>
 	<key>rootObject</key>

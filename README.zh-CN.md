@@ -1,95 +1,85 @@
 <div align="center">
 
-<img src="docs/icon.png" width="128" height="128" alt="Softfold" />
+# Uduo
 
-# Softfold
+**让桌面跟着屏幕一起开合。**
 
-**合上屏幕，桌面温柔地折叠起来。**
+合上时，桌面折叠、渐渐模糊；抬起时，画面随之展开。
 
-<a href="https://github.com/ReffWu/softfold/releases/latest/download/Softfold.dmg">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/readme/download-zh-Hans-dark.png">
-    <img src="docs/readme/download-zh-Hans-light.png" height="52" alt="下载 Mac 版">
-  </picture>
-</a>
+[下载 Mac 版](https://github.com/Youdao-vibecoding/Uduo/releases/latest) · [English](README.md) · [从源码构建](BUILD.md)
 
-<sub>免费 · Apple 芯片 MacBook · macOS 14 或更新版本 · 经 Apple 公证</sub>
-
-<sub>喜欢 Softfold 的话，在 GitHub 上点个 ⭐，能让更多人发现它。</sub>
-
-[English](README.md) · 简体中文 · [繁體中文](README.zh-TW.md) · [日本語](README.ja.md) · [한국어](README.ko.md)
+免费开源 · macOS 14+ · 配备兼容传感器的 Apple silicon MacBook
 
 </div>
 
-<p align="center">
-  <img src="docs/readme/hero-zh-Hans.png" alt="合上屏幕，桌面温柔地折叠起来。">
-</p>
+![Uduo illustrated fold preview](docs/demo.gif)
 
----
+<details>
+<summary>查看三种开合状态</summary>
 
-Softfold 会跟着 MacBook 的铰链一起动。你把屏幕往下合，实时的桌面也跟着向后倾倒，从上往下逐渐模糊，慢慢融进两侧的暗色里。再把屏幕抬起来，一切原样回来，清清楚楚，停在你离开时的样子。
+![Uduo 左侧开合预览与右侧角度、效果控制界面](docs/preview.png)
 
-## 下载
+</details>
 
-[下载 Softfold.dmg](https://github.com/ReffWu/softfold/releases/latest/download/Softfold.dmg)，打开后把 Softfold 拖进「应用程序」。App 使用 Developer ID 签名并经过 Apple 公证，像其他 App 一样双击就能打开。
+<sub>界面预览。屏幕内容为效果示意，并非桌面录屏。</sub>
 
-第一次启动时允许「屏幕录制」，如果 macOS 要求就重新打开 Softfold，然后把它开启。之后它会随 Mac 自动启动，并保持开启状态。
+Uduo 根据 MacBook 的实际屏幕角度，让桌面产生连续的折叠效果。放慢动作，画面也跟着放慢；中途停住，再抬起，桌面会继续展开。
 
-第一次开启时，Softfold 会自动取你当时的屏幕角度作为打开角度。之后想改，把屏幕调到舒服的位置，点 **使用当前角度** 就行。在任何地方按 <kbd>⌃</kbd> <kbd>⌥</kbd> <kbd>H</kbd> 都能开启或关闭它。
+## 调成顺手的样子
 
-## 哪些 MacBook 可以用
+- **停住时保持折叠。** 保留当前折叠效果，抬起屏幕再展开；也可以选择停下后恢复清晰。
+- **决定从哪里开始折叠。** 点击或拖动 25–120° 标尺，调整立即保存；也可直接设为现在的屏幕角度。
+- **不用动电脑，也能看效果。** 点击“播放效果演示”，看一次完整开合，再自动回到实时预览。演示不会改动你的设置。
+- **能轻轻拉动的卡片。** 拖动卡片空白处，会有轻微拉伸、倾斜和回弹。按钮、开关与标尺独立操作，开启系统“减少动态效果”后关闭这项动画。
+- **入口由你选择。** 可以显示程序坞图标、菜单栏图标，或同时保留。按 **Control + Option + Shift + H** 切换桌面效果。
 
-Softfold 需要 Apple 从 2019 年开始加入的屏幕开合角度传感器（在 Apple 芯片机型上由传感器协处理器提供），以及 macOS 14 或更新版本。如果你的 Mac 没有这个传感器，Softfold 会直接告诉你。
+实际桌面和左侧效果示意都会随折叠逐渐模糊、加深暗角。左侧预览使用绘制的画面，不额外截取桌面，也不代表实际渲染效果的精确测量。
 
-| 状态 | 机型 |
+## 安装
+
+1. 从[最新版本](https://github.com/Youdao-vibecoding/Uduo/releases/latest)下载 DMG。
+2. 打开后，将 **Uduo** 拖入 **Applications／应用程序**。
+3. 打开 Uduo，在系统设置中允许“屏幕录制”；若 macOS 提示重启应用，按提示操作。
+4. 开启桌面效果，轻轻合上一点屏幕。
+
+**签名状态：** Uduo 1.0.0 目前采用临时签名，尚未使用 Developer ID 签名，也未经过 Apple 公证。首次打开可能被 macOS 拦截。确认信任下载来源后，可参照 [Apple 的说明](https://support.apple.com/en-nz/guide/mac-help/mh40616/mac)，在“系统设置 → 隐私与安全性”中允许打开。
+
+屏幕录制权限用于读取桌面并绘制折叠效果。画面仅保存在本机内存中，不保存为文件，也不上传。更新临时签名版本后，系统可能要求重新授予这项权限。
+
+## 下载前确认
+
+需要 **macOS 14 或更新版本**、**Apple silicon MacBook**，以及**兼容的屏幕开合角度传感器**。并非每一款 Apple silicon MacBook 都能使用；桌面效果作用于内置屏幕，外接显示器无法替代所需传感器。
+
+若应用一直提示等待传感器，机型可能无法提供 Uduo 所需的读数。效果演示仍可使用。欢迎在 [Issue](https://github.com/Youdao-vibecoding/Uduo/issues/new) 中反馈兼容情况，并附上 Mac 型号与 macOS 版本。
+
+## 常用操作
+
+| 操作 | 方式 |
 | --- | --- |
-| 可用，已有用户确认 | 14 和 16 英寸 MacBook Pro：M1 Pro 或 M1 Max（2021）、M2 Max（2023）、M3 Pro 或 M3 Max（2023）、M4 Pro 或 M4 Max（2024）。MacBook Air：M4（2025）或 M5 |
-| 有传感器，尚未确认 | 14 英寸 MacBook Pro：M3、M4 或 M5。14 和 16 英寸 MacBook Pro：M5 Pro 或 M5 Max。MacBook Air：M2 或 M3 |
-| 不支持 | M1 MacBook Air、所有 13 英寸 MacBook Pro（Intel、M1、M2）、Intel MacBook Pro、12 英寸 MacBook、MacBook Neo、台式 Mac |
+| 开关桌面效果 | Control + Option + Shift + H |
+| 调整开始折叠的角度 | 点击或拖动 25–120° 标尺 |
+| 精细调整已选中的标尺 | 方向键每次 1°；Shift + 方向键每次 5° |
+| 跳到范围两端 | Home：25°；End：120° |
+| 完全退出 | “退出应用”或 Command + Q |
 
-2019 年的 16 英寸 MacBook Pro 也有这个传感器，但发布的 App 只支持 Apple 芯片。
+关闭窗口后，效果可以继续运行；再次打开 Uduo，即可找回控制界面。如果已在使用 Softfold 或其他桌面折叠软件，请先退出，再启用 Uduo。
 
-不确定？在「终端」里运行下面这条命令，如果输出里有一行以 `las` 结尾，就说明 Softfold 能读到你的屏幕角度：
+## 隐私与更新
 
-```sh
-hidutil list --matching '{"VendorID":0x5ac,"PrimaryUsagePage":32,"PrimaryUsage":138}'
-```
+不收集遥测，不自动更新，也不会自动注册开机启动。新版本从本仓库的 Releases 手动下载。卡片拖拽动画不需要申请“辅助功能”权限。
 
-用的是表格中间那一行的机型？欢迎[告诉我们结果](https://github.com/ReffWu/softfold/issues)。
+应用使用 SwiftUI、AppKit、ScreenCaptureKit 与 Metal。弹簧交互使用 macOS 14.2 SDK 中可用的接口，未采用新版 Liquid Glass 专用 API。本版没有新增高帧率渲染模式。
 
-## 工作原理
+## 一起改进
 
-Softfold 通过 IOKit HID 读取屏幕角度，传感器支持时精确到百分之一度，并且跟着传感器自己的刷新节奏读取，而不是盲目地高频轮询。一个临界阻尼滤波器把这些读数变成连续的动作：慢慢合，就慢慢折；快快合，就快快折。合到一半停下一秒，桌面会柔和地恢复清晰；继续往下合，又会立刻折起来。
+源码构建见 [BUILD.md](BUILD.md)，检查方法见 [CHECKS.md](CHECKS.md)，运动与渲染原理见 [MOTION.md](MOTION.md)。
 
-ScreenCaptureKit 提供实时桌面画面，Metal 以 60 fps 渲染透视、渐进模糊和两侧填充。只有在合盖或已经折叠时才会截屏，屏幕打开几秒后就停止，屏幕录制的提示图标也会随之消失。画面只保留在你 Mac 的内存里，不录制、不上传。为了统计有多少台 Mac 在使用，Softfold 每天发送一次匿名心跳，内容只有随机生成的安装 ID、App 和 macOS 版本、Mac 型号，以及当天是否用过折叠效果。不会保存屏幕内容、文件、IP 地址或任何个人信息。在 Softfold 窗口里关闭「共享匿名使用统计」即可停止。
+反馈问题时，请说明屏幕如何移动、出现了什么现象，以及 Mac 型号。可以附上不含隐私内容的短录屏。兼容性、无障碍与翻译改进都欢迎参与。
 
-完整的动效设计见 [MOTION.md](MOTION.md)。
+如果这个小效果让你更喜欢打开电脑，欢迎点一颗 Star。
 
-## 语言
+## 鸣谢与许可
 
-支持英语、简体中文、繁体中文、日语、韩语、德语、法语、西班牙语、意大利语、巴西葡萄牙语、俄语、荷兰语、土耳其语、波兰语、阿拉伯语和越南语。默认跟随系统语言，也可以在 Softfold 窗口里单独选择。
+Uduo 是基于 **Reff Wu** 的 [Softfold](https://github.com/ReffWu/softfold) v1.16 开发的独立衍生版本。Softfold 源自 **Noveum.ai** 的 [Hinge](https://github.com/Noveum/hinge)；传感器的 HID 标识与报告结构参考了 [LidAngleSensor](https://github.com/samhenrigold/LidAngleSensor)。
 
-## 从源码构建
-
-先安装 Xcode，然后：
-
-```sh
-git clone https://github.com/ReffWu/softfold.git
-cd softfold
-make build
-open build/Softfold.app
-```
-
-开发检查见 [CHECKS.md](CHECKS.md)，签名发布流程见 [RELEASE.md](RELEASE.md)。
-
-## 参与贡献
-
-欢迎提想法、报 Bug、发 Pull Request。可以[提交 Issue](https://github.com/ReffWu/softfold/issues) 或直接发 PR。
-
-## 致谢
-
-Softfold 最初 fork 自 Noveum.ai 的 [Hinge](https://github.com/Noveum/hinge)，原项目以 MIT 许可证发布。屏幕角度传感器的 HID 标识和报告格式最早由 [LidAngleSensor](https://github.com/samhenrigold/LidAngleSensor) 公开。
-
-## 许可证
-
-[MIT](LICENSE)
+项目采用 [MIT 许可](LICENSE)，保留上游版权声明。Uduo 并非 Softfold 官方发行版。

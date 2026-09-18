@@ -22,8 +22,15 @@ final class LidMotion {
   private var restAngle: Double?
   private var prewarmed = false
 
+  static let openAngleRange = 25.0...120.0
+
+  static func boundedOpenAngle(_ value: Double) -> Double {
+    guard value.isFinite else { return LiveDesktop.defaultOpenAngle }
+    return min(max(value, openAngleRange.lowerBound), openAngleRange.upperBound)
+  }
+
   init(openAngle: Double = LiveDesktop.defaultOpenAngle) {
-    baseline = openAngle
+    baseline = Self.boundedOpenAngle(openAngle)
   }
 
   struct Update {
@@ -57,10 +64,13 @@ final class LidMotion {
     if let value, let trackedAngle, lastSample > 0, time >= lastSample {
       let delta = max(time - lastSample, 0.001)
       let nextAngle = min(max(trackedAngle, value - 0.6), value + 0.6)
-      if nextAngle < trackedAngle {
-        direction = 1
-      } else if nextAngle > trackedAngle {
-        direction = -1
+      if nextAngle != trackedAngle {
+        let nextDirection = nextAngle < trackedAngle ? 1 : -1
+        if nextDirection != direction {
+          angularVelocity = 0
+          displayVelocity = 0
+        }
+        direction = nextDirection
       }
       let measuredVelocity = (nextAngle - trackedAngle) / delta
       angularVelocity += (measuredVelocity - angularVelocity) * (1 - exp(-delta / 0.06))
@@ -72,6 +82,10 @@ final class LidMotion {
     }
     lastSample = time
     updateTarget(at: time)
+    if enabled, changed, value != nil {
+      displayed = target
+      displayVelocity = 0
+    }
     if held, focus >= 1 {
       displayed = target
       displayVelocity = 0
@@ -100,7 +114,7 @@ final class LidMotion {
   func setBaseline(_ value: Double) {
     lock.lock()
     defer { lock.unlock() }
-    baseline = value
+    baseline = Self.boundedOpenAngle(value)
     reset()
   }
 
@@ -108,30 +122,29 @@ final class LidMotion {
   func calibrate() -> Double? {
     lock.lock()
     defer { lock.unlock() }
-    guard let angle, angle >= 25 else { return nil }
-    baseline = angle
+    guard let angle, angle.isFinite, angle >= Self.openAngleRange.lowerBound else { return nil }
+    baseline = Self.boundedOpenAngle(angle)
     reset()
     return baseline
   }
 
-  func setEnabled(_ value: Bool) {
+  func setEnabled(_ value: Bool, at time: Double = CACurrentMediaTime()) {
     lock.lock()
     defer { lock.unlock() }
     enabled = value
-    reset()
-    updateTarget()
+    reset(at: time)
   }
 
-  private func reset() {
+  private func reset(at time: Double = CACurrentMediaTime()) {
     trackedAngle = angle
     angularVelocity = 0
     direction = 0
-    target = 0
-    displayed = 0
+    updateTarget(at: time)
+    displayed = target
     displayVelocity = 0
     lastFrame = 0
     anchor = angle
-    movedAt = CACurrentMediaTime()
+    movedAt = time
     held = false
     focus = 0
   }

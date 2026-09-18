@@ -29,6 +29,51 @@ final class DesktopPanel: NSPanel {
   override var canBecomeMain: Bool { false }
 }
 
+private final class LidSampleGate {
+  private let lock = NSLock()
+  private var generation = UUID()
+  private var acceptsSamples = true
+  private var awaitingReset = false
+
+  func suspend() {
+    lock.lock()
+    defer { lock.unlock() }
+    acceptsSamples = false
+    generation = UUID()
+  }
+
+  func resume() {
+    lock.lock()
+    defer { lock.unlock() }
+    acceptsSamples = true
+    awaitingReset = true
+    generation = UUID()
+  }
+
+  func receive(_ angle: Double?, motion: LidMotion) -> (UUID, LidMotion.Update)? {
+    lock.lock()
+    defer { lock.unlock() }
+    guard acceptsSamples else { return nil }
+    if awaitingReset {
+      guard angle == nil else { return nil }
+      awaitingReset = false
+    }
+    return (generation, motion.receive(angle))
+  }
+
+  func current() -> UUID? {
+    lock.lock()
+    defer { lock.unlock() }
+    return acceptsSamples && !awaitingReset ? generation : nil
+  }
+
+  func isCurrent(_ generation: UUID) -> Bool {
+    lock.lock()
+    defer { lock.unlock() }
+    return acceptsSamples && self.generation == generation
+  }
+}
+
 @MainActor
 final class LidReading: ObservableObject {
   @Published fileprivate(set) var degrees: Double?
@@ -45,19 +90,20 @@ final class LiveDesktop: NSObject, ObservableObject {
   @Published private(set) var openAngle: Double
   nonisolated static let defaultOpenAngle = 95.0
   @Published private(set) var focusesWhenHeld =
-    UserDefaults.standard.object(forKey: "focusesWhenHeld") as? Bool ?? true
+    UserDefaults.standard.object(forKey: "focusesWhenHeld") as? Bool ?? false
   @Published private(set) var error: String?
   @Published private(set) var needsPermission = false
   @Published private(set) var isEnabled = UserDefaults.standard.bool(forKey: "effectEnabled")
   private static let missingSensorMessage =
     String(
       localized:
-        "This Mac doesn't appear to have a lid angle sensor, so Softfold can't follow the lid.")
+        "This Mac doesn't appear to have a lid angle sensor, so Uduo can't follow the lid.")
   private static let sensorDroppedMessage =
     String(
       localized:
-        "The lid sensor stopped responding. Softfold turns back on as soon as it reconnects.")
+        "The lid sensor stopped responding. Uduo turns back on as soon as it reconnects.")
   private let sensor = LidSensor()
+  private let sampleGate = LidSampleGate()
   private var sensorMissing = false
   private let motion: LidMotion
   private var stream: SCStream?
@@ -69,6 +115,7 @@ final class LiveDesktop: NSObject, ObservableObject {
   private var session = UUID()
   private var observers = [NSObjectProtocol]()
   private var resumeAfterWake = false
+  private var isSuspended = false
   private var restoringAtLaunch = UserDefaults.standard.bool(forKey: "effectEnabled")
   private var wakeTask: Task<Void, Never>?
   private var displayTask: Task<Void, Never>?
@@ -82,27 +129,31 @@ final class LiveDesktop: NSObject, ObservableObject {
   override init() {
     let savedAngle =
       UserDefaults.standard.object(forKey: "openAngle") as? Double ?? Self.defaultOpenAngle
-    let openAngle =
-      savedAngle.isFinite && (25...180).contains(savedAngle) ? savedAngle : Self.defaultOpenAngle
+    let openAngle = LidMotion.boundedOpenAngle(savedAngle)
+    if openAngle != savedAngle { UserDefaults.standard.set(openAngle, forKey: "openAngle") }
     self.openAngle = openAngle
     motion = LidMotion(openAngle: openAngle)
     super.init()
     motion.setFocusesWhenHeld(focusesWhenHeld)
     let motion = motion
     let lid = lid
+    let sampleGate = sampleGate
     var shownDegree: Int?
     sensor.onAngle = { [weak self] angle in
+      guard let (generation, update) = sampleGate.receive(angle, motion: motion) else { return }
       let degree = angle.map { value in
         shownDegree.flatMap { abs(value - Double($0)) < 0.8 ? $0 : nil } ?? Int(value.rounded())
       }
       if degree != shownDegree {
         shownDegree = degree
-        Task { @MainActor in lid.degrees = degree.map(Double.init) }
+        Task { @MainActor in
+          guard sampleGate.isCurrent(generation) else { return }
+          lid.degrees = degree.map(Double.init)
+        }
       }
-      let update = motion.receive(angle)
       guard update.availabilityChanged || update.beganClosing || update.approaching else { return }
       Task { @MainActor [weak self] in
-        guard let self else { return }
+        guard let self, !self.isSuspended, sampleGate.isCurrent(generation) else { return }
         if update.availabilityChanged {
           self.sensorAvailable = update.available
           if update.available, self.sensorMissing {
@@ -126,8 +177,11 @@ final class LiveDesktop: NSObject, ObservableObject {
       }
     }
     sensor.onMissing = { [weak self] in
+      guard let generation = sampleGate.current() else { return }
       Task { @MainActor [weak self] in
-        guard let self, !self.sensorAvailable else { return }
+        guard let self, !self.isSuspended, !self.sensorAvailable,
+          sampleGate.isCurrent(generation)
+        else { return }
         self.sensorMissing = true
         if self.error == nil { self.error = Self.missingSensorMessage }
       }
@@ -137,32 +191,32 @@ final class LiveDesktop: NSObject, ObservableObject {
     for name in [NSWorkspace.willSleepNotification, NSWorkspace.screensDidSleepNotification] {
       observers.append(
         center.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
-          Task { @MainActor in self?.suspendForSleep() }
+          Task { @MainActor [weak self] in self?.suspendForSleep() }
         })
     }
     for name in [NSWorkspace.didWakeNotification, NSWorkspace.screensDidWakeNotification] {
       observers.append(
         center.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
-          Task { @MainActor in self?.resumeFromSleep() }
+          Task { @MainActor [weak self] in self?.resumeFromSleep() }
         })
     }
     observers.append(
       center.addObserver(
         forName: NSWorkspace.activeSpaceDidChangeNotification, object: nil, queue: .main
       ) { [weak self] _ in
-        Task { @MainActor in self?.refreshSpace() }
+        Task { @MainActor [weak self] in self?.refreshSpace() }
       })
     observers.append(
       NotificationCenter.default.addObserver(
         forName: NSApplication.didChangeScreenParametersNotification, object: nil, queue: .main
       ) { [weak self] _ in
-        Task { @MainActor in self?.refreshDisplay() }
+        Task { @MainActor [weak self] in self?.refreshDisplay() }
       })
     observers.append(
       NotificationCenter.default.addObserver(
         forName: NSWindow.didBecomeKeyNotification, object: nil, queue: .main
       ) { [weak self] _ in
-        Task { @MainActor in await self?.refreshExcludedWindows() }
+        Task { @MainActor [weak self] in await self?.refreshExcludedWindows() }
       })
   }
 
@@ -177,7 +231,7 @@ final class LiveDesktop: NSObject, ObservableObject {
   private func setUpOnFirstEnable() {
     guard !UserDefaults.standard.bool(forKey: "setUpOnFirstEnable") else { return }
     UserDefaults.standard.set(true, forKey: "setUpOnFirstEnable")
-    try? SMAppService.mainApp.register()
+    if !LocalEdition.isLocal { try? SMAppService.mainApp.register() }
     if let angle = lid.degrees, (80...140).contains(angle) { setOpenPosition() }
   }
 
@@ -190,13 +244,22 @@ final class LiveDesktop: NSObject, ObservableObject {
 
   var isDefaultOpenAngle: Bool { abs(openAngle - Self.defaultOpenAngle) < 0.5 }
 
+  func setOpenAngle(_ proposed: Double) {
+    guard proposed.isFinite else { return }
+    let angle = LidMotion.boundedOpenAngle(proposed)
+    guard abs(angle - openAngle) > 0.0001 else { return }
+    motion.setBaseline(angle)
+    openAngle = angle
+    UserDefaults.standard.set(angle, forKey: "openAngle")
+    renderAfterCalibration()
+  }
+
   func restoreDefaultOpenPosition() {
     motion.setBaseline(Self.defaultOpenAngle)
     openAngle = Self.defaultOpenAngle
     UserDefaults.standard.removeObject(forKey: "openAngle")
     error = nil
-    displayLink?.isPaused = true
-    metalView?.draw()
+    renderAfterCalibration()
   }
 
   func setOpenPosition() {
@@ -207,12 +270,20 @@ final class LiveDesktop: NSObject, ObservableObject {
     openAngle = angle
     UserDefaults.standard.set(angle, forKey: "openAngle")
     error = nil
-    displayLink?.isPaused = true
-    metalView?.draw()
+    renderAfterCalibration()
+  }
+
+  private func renderAfterCalibration() {
+    if motion.isClosing {
+      beginRendering()
+    } else {
+      displayLink?.isPaused = true
+      metalView?.draw()
+    }
   }
 
   func start(promptForPermission: Bool = true) async {
-    guard !isStarting, !isActive else { return }
+    guard isEnabled, !isSuspended, !isStarting, !isActive else { return }
     error = nil
     needsPermission = false
     guard sensorAvailable else {
@@ -225,7 +296,7 @@ final class LiveDesktop: NSObject, ObservableObject {
     guard hasScreenAccess else {
       needsPermission = true
       error = String(
-        localized: "Allow Softfold in Screen Recording settings, then quit and reopen it.")
+        localized: "Allow Uduo in Screen Recording settings, then quit and reopen it.")
       return
     }
     guard builtInScreenAvailable else {
@@ -291,7 +362,10 @@ final class LiveDesktop: NSObject, ObservableObject {
             localized: "The desktop renderer stopped: \(failure.localizedDescription)")
         }
       }
-      renderer.onRest = { [weak self] in self?.restOverlay() }
+      renderer.onRest = { [weak self] in
+        guard let self, self.session == session else { return }
+        self.restOverlay()
+      }
       guard sensorAvailable else { throw DesktopError.message(Self.sensorDroppedMessage) }
       motion.setEnabled(true)
       isActive = true
@@ -331,7 +405,7 @@ final class LiveDesktop: NSObject, ObservableObject {
     let stream = SCStream(filter: filter, configuration: configuration, delegate: frames)
     try stream.addStreamOutput(
       frames, type: .screen,
-      sampleHandlerQueue: DispatchQueue(label: "softfold.capture", qos: .userInteractive))
+      sampleHandlerQueue: DispatchQueue(label: "uduo.capture", qos: .userInteractive))
     self.frames = frames
     self.stream = stream
     return stream
@@ -391,7 +465,7 @@ final class LiveDesktop: NSObject, ObservableObject {
     content.windows.filter {
       $0.owningApplication?.processID == ProcessInfo.processInfo.processIdentifier
         && ($0.windowID == CGWindowID(overlay?.windowNumber ?? 0)
-          || $0.title == "Softfold Desktop Overlay" || $0.windowLayer != 0)
+          || $0.title == "Uduo Desktop Overlay" || $0.windowLayer != 0)
     }
   }
 
@@ -452,7 +526,7 @@ final class LiveDesktop: NSObject, ObservableObject {
       defer: false)
     window.isFloatingPanel = true
     window.becomesKeyOnlyIfNeeded = true
-    window.title = "Softfold Desktop Overlay"
+    window.title = "Uduo Desktop Overlay"
     window.level = NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.screenSaverWindow)))
     window.collectionBehavior = [
       .canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle,
@@ -499,7 +573,6 @@ final class LiveDesktop: NSObject, ObservableObject {
   private func beginRendering() {
     guard isActive, motion.isClosing else { return }
     isFolding = true
-    Heartbeat.recordFold()
     StarRequest.shared.recordFold()
     resumeCapture()
     displayLink?.isPaused = false
@@ -533,36 +606,51 @@ final class LiveDesktop: NSObject, ObservableObject {
   }
 
   private func suspendForSleep() {
-    resumeAfterWake = resumeAfterWake || isActive || isStarting || isWaitingForDisplay
+    guard !isSuspended else { return }
+    isSuspended = true
+    resumeAfterWake = isEnabled
+    sampleGate.suspend()
+    sensorAvailable = false
+    _ = motion.receive(nil)
     stop(preserveResume: true)
     sensor.stop()
   }
 
   private func resumeFromSleep() {
-    guard !isActive, !isStarting, wakeTask == nil else { return }
+    guard isSuspended, wakeTask == nil else { return }
+    isSuspended = false
+    sampleGate.resume()
     sensor.reconnect()
-    guard resumeAfterWake else { return }
+    guard resumeAfterWake, isEnabled else { return }
     wakeTask = Task { [weak self] in
       guard let self else { return }
-      for _ in 0..<5 {
-        do { try await Task.sleep(for: .seconds(1)) } catch { return }
-        guard self.resumeAfterWake, !Task.isCancelled else { return }
-        if self.sensorAvailable { break }
-        self.sensor.reconnect()
+      let deadline = CACurrentMediaTime() + 5
+      var nextReconnect = CACurrentMediaTime() + 1
+      while !self.sensorAvailable || !self.builtInScreenAvailable {
+        guard self.resumeAfterWake, self.isEnabled, !self.isSuspended, !Task.isCancelled else {
+          return
+        }
+        let now = CACurrentMediaTime()
+        if now >= deadline { break }
+        if !self.sensorAvailable, now >= nextReconnect {
+          self.sensor.reconnect()
+          nextReconnect = now + 1
+        }
+        do { try await Task.sleep(for: .milliseconds(50)) } catch { return }
       }
-      guard self.resumeAfterWake, !Task.isCancelled else { return }
+      guard self.resumeAfterWake, self.isEnabled, !self.isSuspended, !Task.isCancelled else {
+        return
+      }
       self.wakeTask = nil
       self.resumeAfterWake = false
-      await self.start()
+      await self.start(promptForPermission: false)
     }
   }
 
   func stop(preserveResume: Bool = false) {
-    if !preserveResume {
-      resumeAfterWake = false
-      wakeTask?.cancel()
-      wakeTask = nil
-    }
+    if !preserveResume { resumeAfterWake = false }
+    wakeTask?.cancel()
+    wakeTask = nil
     session = UUID()
     sensor.setTracking(false)
     motion.setEnabled(false)
@@ -590,6 +678,7 @@ final class LiveDesktop: NSObject, ObservableObject {
       }
     }
     frames = nil
+    renderer?.discardFrame()
     renderer = nil
     capturedDisplayID = nil
     excludedWindowIDs = []

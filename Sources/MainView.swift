@@ -3,179 +3,464 @@ import IOKit
 import SwiftUI
 import UniformTypeIdentifiers
 
+private enum Studio {
+  static let paper = Color(red: 0.945, green: 0.945, blue: 0.93)
+  static let ink = Color(red: 0.07, green: 0.075, blue: 0.07)
+  static let panel = Color(red: 0.075, green: 0.078, blue: 0.075)
+  static let card = Color(red: 0.13, green: 0.135, blue: 0.13)
+  static let acid = Color(red: 0.945, green: 1, blue: 0.16)
+}
+
 struct MainView: View {
   @ObservedObject var desktop: LiveDesktop
   @ObservedObject var updater: Updater
-  @ObservedObject private var starRequest = StarRequest.shared
+  let delegate: AppDelegate
   @State private var screenRecordingAllowed = CGPreflightScreenCaptureAccess()
+  @State private var showsPreferences = false
+  @State private var isAdjustingAngle = false
   @Environment(\.openWindow) private var openWindow
 
   var body: some View {
-    VStack(spacing: 0) {
-      hero
-      VStack(spacing: 16) {
-        if starRequest.isVisible {
-          SettingsGroup { StarRow() }
-            .transition(.opacity)
-        }
-        effect
-        position
-        focus
-        PreferencesCard(updater: updater)
-        MoreAppsCard()
-      }
-      .padding(.horizontal, 20)
-      footer
+    HStack(spacing: 0) {
+      FoldLivePanel(
+        lid: desktop.lid, openAngle: desktop.openAngle, active: desktop.isActive,
+        available: desktop.sensorAvailable, version: version,
+        showAbout: { openWindow(id: "about") }
+      )
+      .frame(width: 484)
+      .background(Studio.paper)
+      controls
+        .frame(width: 376)
+        .background(Studio.panel.ignoresSafeArea(edges: .vertical))
+        .environment(\.colorScheme, .dark)
     }
-    .frame(width: 440)
-    .fixedSize()
-    .background(Color(nsColor: .windowBackgroundColor).ignoresSafeArea())
-    .onAppear { MoreApps.shared.refreshIfStale() }
+    .frame(width: 860, height: 740)
+    .background(Studio.paper.ignoresSafeArea())
+    .onAppear {
+      let openWindow = openWindow
+      delegate.onReopen = {
+        openWindow(id: "main")
+        NSApp.activate(ignoringOtherApps: true)
+      }
+    }
     .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification))
     { _ in
       screenRecordingAllowed = CGPreflightScreenCaptureAccess()
     }
   }
 
-  private var hero: some View {
-    HStack(alignment: .center, spacing: 8) {
-      LidPicture(
-        lid: desktop.lid, openAngle: desktop.openAngle, active: desktop.isActive,
-        available: desktop.sensorAvailable, folding: desktop.isFolding, scale: 5.6
-      )
-      VStack(alignment: .leading, spacing: 4) {
-        Text(verbatim: "Softfold")
-          .font(.system(size: 22, weight: .semibold))
-        Text("Your desktop follows your lid.")
-          .font(.system(size: 13))
-          .foregroundStyle(.secondary)
-          .fixedSize(horizontal: false, vertical: true)
+  private var controls: some View {
+    VStack(alignment: .leading, spacing: 20) {
+      HStack {
+        Text("Controls")
+          .font(.system(size: 26, weight: .semibold))
+        Spacer()
+        Button { showsPreferences.toggle() } label: {
+          Image(systemName: "slider.horizontal.3")
+            .font(.system(size: 16, weight: .medium))
+            .frame(width: 40, height: 40)
+            .background(Studio.card, in: Circle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(Text("General settings"))
+        .help("General settings")
+        .popover(isPresented: $showsPreferences, arrowEdge: .bottom) {
+          VStack(alignment: .leading, spacing: 18) {
+            PreferencesCard(updater: updater)
+            HStack {
+              Text("Keyboard shortcut")
+              Spacer()
+              Text(verbatim: LocalEdition.shortcut)
+            }
+            .font(.system(size: 12))
+            .foregroundStyle(.secondary)
+          }
+          .padding(20)
+          .frame(width: 380)
+          .background(Studio.panel)
+          .environment(\.colorScheme, .dark)
+          .preferredColorScheme(.dark)
+          .tint(Studio.acid)
+        }
       }
-      Spacer(minLength: 0)
+      ScrollView {
+        VStack(spacing: 14) {
+          Toggle(
+            "Desktop fold",
+            isOn: Binding(get: { desktop.isEnabled }, set: { desktop.setEnabled($0) })
+          )
+          .toggleStyle(StudioPowerStyle(status: desktop.statusTitle))
+          .disabled(desktop.isStarting)
+          .help(Text(verbatim: LocalEdition.shortcut))
+          if !desktop.isActive {
+            Text(desktop.statusSubtitle)
+              .font(.system(size: 12))
+              .foregroundStyle(.white.opacity(0.7))
+              .frame(maxWidth: .infinity, alignment: .leading)
+              .fixedSize(horizontal: false, vertical: true)
+              .padding(.horizontal, 4)
+          }
+          permissionNotice
+          position
+          focus
+        }
+        .padding(.bottom, 2)
+      }
+      .scrollIndicators(.automatic)
+      HStack {
+        Text(desktop.statusTitle)
+          .font(.system(size: 12))
+          .foregroundStyle(.white.opacity(0.55))
+        Spacer()
+        Button("Quit App") { NSApp.terminate(nil) }
+          .buttonStyle(StudioPillStyle(light: true))
+          .help(Text("⌘Q"))
+      }
     }
-    .padding(.leading, 12)
-    .padding(.trailing, 16)
-    .padding(.top, -14)
-    .padding(.bottom, 10)
+    .foregroundStyle(.white)
+    .padding(.horizontal, 26)
+    .padding(.top, 24)
+    .padding(.bottom, 24)
   }
 
-  private var effect: some View {
-    SettingsGroup {
-      SettingsRow(
-        "power", tint: desktop.isActive ? .green : .gray, title: desktop.statusTitle,
-        subtitle: desktop.statusSubtitle
-      ) {
-        Toggle(
-          "Turn Softfold on or off",
-          isOn: Binding(get: { desktop.isEnabled }, set: { desktop.setEnabled($0) })
-        )
-        .toggleStyle(.switch)
-        .labelsHidden()
-        .disabled(desktop.isStarting)
-      }
-      if !screenRecordingAllowed, !desktop.needsPermission {
-        SettingsDivider()
-        SettingsRow(
-          "rectangle.dashed.badge.record", tint: .red,
-          title: String(localized: "Screen Recording"),
-          subtitle: String(
-            localized:
-              "Softfold reads your display only to draw the fold. Frames stay in memory on your Mac."
-          )
-        ) {
+  @ViewBuilder
+  private var permissionNotice: some View {
+    if let error = desktop.error {
+      VStack(alignment: .leading, spacing: 12) {
+        Label(error, systemImage: "exclamationmark.triangle")
+          .font(.system(size: 12))
+          .fixedSize(horizontal: false, vertical: true)
+        if desktop.needsPermission {
           Button("Open Settings", action: openScreenRecordingSettings)
-            .controlSize(.small)
+            .buttonStyle(StudioPillStyle(light: true))
         }
       }
-      if let error = desktop.error {
-        SettingsDivider()
-        SettingsRow("exclamationmark.triangle.fill", tint: .orange, title: error) {
-          if desktop.needsPermission {
-            Button("Open Settings", action: openScreenRecordingSettings)
-              .controlSize(.small)
-          }
-        }
+      .frame(maxWidth: .infinity, alignment: .leading)
+      .padding(18)
+      .background(Studio.card, in: RoundedRectangle(cornerRadius: 24))
+    } else if !screenRecordingAllowed {
+      VStack(alignment: .leading, spacing: 12) {
+        Text("Screen Recording").font(.system(size: 14, weight: .medium))
+        Text("Uduo reads your display only to draw the fold. Frames stay in memory on your Mac.")
+          .font(.system(size: 12))
+          .foregroundStyle(.white.opacity(0.7))
+          .fixedSize(horizontal: false, vertical: true)
+        Button("Open Settings", action: openScreenRecordingSettings)
+          .buttonStyle(StudioPillStyle(light: true))
       }
+      .frame(maxWidth: .infinity, alignment: .leading)
+      .padding(18)
+      .background(Studio.card, in: RoundedRectangle(cornerRadius: 24))
     }
   }
 
   private var position: some View {
-    SettingsGroup(
-      footnote: String(
-        localized:
-          "Folding begins below this angle. Softfold takes it from your lid the first time you turn it on."
-      )
-    ) {
-      SettingsRow(
-        "angle", tint: .indigo, title: String(localized: "Open position"),
-        subtitle: degrees(desktop.openAngle)
-      ) {
-        if !desktop.isDefaultOpenAngle {
-          Button("Restore Default") {
-            withAnimation(.smooth(duration: 0.4)) { desktop.restoreDefaultOpenPosition() }
-          }
-          .controlSize(.small)
-          .fixedSize()
-          .help(Text("Go back to \(degrees(LiveDesktop.defaultOpenAngle))"))
+    VStack(alignment: .leading, spacing: 14) {
+      HStack {
+        Text("Open baseline")
+          .font(.system(size: 14, weight: .medium))
+          .frame(maxWidth: .infinity, alignment: .leading)
+          .jellyCardDragHandle()
+        Spacer()
+        Button {
+          withAnimation(.smooth(duration: 0.4)) { desktop.restoreDefaultOpenPosition() }
+        } label: {
+          Image(systemName: "arrow.counterclockwise")
+            .frame(width: 34, height: 34)
+            .background(.white.opacity(0.06), in: Circle())
         }
-        Button("Use Current Angle") {
-          withAnimation(.smooth(duration: 0.4)) { desktop.setOpenPosition() }
-        }
-        .controlSize(.small)
-        .fixedSize()
-        .disabled(!desktop.sensorAvailable || desktop.isStarting)
-        .help("Save the lid angle you are viewing at right now")
+        .buttonStyle(.plain)
+        .disabled(desktop.isDefaultOpenAngle || desktop.isStarting)
+        .accessibilityLabel(Text("Restore Default"))
+        .help(Text("Go back to \(degrees(LiveDesktop.defaultOpenAngle))"))
       }
+      Text(verbatim: degrees(desktop.openAngle))
+        .font(.system(size: 48, weight: .regular, design: .rounded))
+        .monospacedDigit()
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .jellyCardDragHandle()
+      VStack(spacing: 2) {
+        AngleRuler(
+          value: Binding(get: { desktop.openAngle }, set: { desktop.setOpenAngle($0) }),
+          onEditingChanged: { isAdjustingAngle = $0 }
+        )
+        .frame(height: 44)
+        .disabled(desktop.isStarting)
+        HStack {
+          Text(verbatim: degrees(LidMotion.openAngleRange.lowerBound))
+          Spacer()
+          Text(verbatim: degrees(LidMotion.openAngleRange.upperBound))
+        }
+        .font(.system(size: 10))
+        .foregroundStyle(.white.opacity(0.5))
+      }
+      Text("Folding starts below this angle.")
+        .font(.system(size: 12))
+        .foregroundStyle(.white.opacity(0.68))
+        .fixedSize(horizontal: false, vertical: true)
+        .help("Drag the ruler to adjust the angle.")
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .jellyCardDragHandle()
+      Button {
+        withAnimation(.smooth(duration: 0.4)) { desktop.setOpenPosition() }
+      } label: {
+        HStack {
+          Text("Use Current Angle")
+          Spacer()
+          Image(systemName: "arrow.up.right")
+        }
+      }
+      .buttonStyle(StudioPillStyle(light: true))
+      .disabled(!desktop.sensorAvailable || desktop.isStarting)
+      .help("Save the lid angle you are viewing at right now")
     }
+    .frame(maxWidth: .infinity, alignment: .leading)
+    .padding(20)
+    .background(Studio.card, in: RoundedRectangle(cornerRadius: 26, style: .continuous))
+    .jellyCard(enabled: !isAdjustingAngle)
   }
 
   private var focus: some View {
-    SettingsGroup {
-      SettingsRow(
-        "camera.aperture", tint: .teal, title: String(localized: "Sharpen when you stop"),
-        subtitle: String(localized: "Pause partway and the desktop comes back into focus.")
-      ) {
+    VStack(alignment: .leading, spacing: 8) {
+      HStack {
+        Text("Follow both directions")
+          .font(.system(size: 14, weight: .medium))
+          .frame(maxWidth: .infinity, alignment: .leading)
+          .jellyCardDragHandle()
+        Spacer(minLength: 12)
         Toggle(
-          "Sharpen when you stop",
-          isOn: Binding(get: { desktop.focusesWhenHeld }, set: { desktop.setFocusesWhenHeld($0) })
+          "Follow both directions",
+          isOn: Binding(
+            get: { !desktop.focusesWhenHeld }, set: { desktop.setFocusesWhenHeld(!$0) })
         )
         .toggleStyle(.switch)
         .labelsHidden()
+        .tint(Studio.acid)
       }
+      Text("Follow the lid in both directions.")
+        .font(.system(size: 12))
+        .foregroundStyle(.white.opacity(0.68))
+        .fixedSize(horizontal: false, vertical: true)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .jellyCardDragHandle()
     }
-  }
-
-  private var footer: some View {
-    HStack(spacing: 6) {
-      Button {
-        openWindow(id: "about")
-      } label: {
-        Text(verbatim: "Softfold \(version)")
-      }
-      .buttonStyle(.plain)
-      .help("About Softfold")
-      Text(verbatim: "·")
-      Button("Check for Updates…") { updater.checkForUpdates() }
-        .buttonStyle(.plain)
-      if let project = URL(string: "https://github.com/ReffWu/softfold") {
-        Text(verbatim: "·")
-        Link(destination: project) {
-          HStack(spacing: 3) {
-            Image(systemName: "star")
-            Text("Star on GitHub")
-          }
-        }
-        .buttonStyle(.plain)
-      }
-    }
-    .font(.system(size: 11))
-    .foregroundStyle(.secondary)
-    .padding(.top, 18)
-    .padding(.bottom, 20)
+    .frame(maxWidth: .infinity, alignment: .leading)
+    .padding(20)
+    .background(Studio.card, in: RoundedRectangle(cornerRadius: 26, style: .continuous))
+    .jellyCard()
   }
 
   private var version: String {
     Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? ""
+  }
+}
+
+private struct FoldLivePanel: View {
+  @ObservedObject var lid: LidReading
+  let openAngle: Double
+  let active: Bool
+  let available: Bool
+  let version: String
+  let showAbout: () -> Void
+  @Environment(\.accessibilityReduceMotion) private var reduceMotion
+  @State private var demoProgress = 0.0
+  @State private var isDemonstrating = false
+  @State private var demoTask: Task<Void, Never>?
+
+  private var liveProgress: Double {
+    guard available, let angle = lid.degrees, openAngle > 8.6 else { return 0 }
+    return min(max((openAngle - 0.6 - angle) / (openAngle - 8.6), 0), 1)
+  }
+
+  private var progress: Double { isDemonstrating ? demoProgress : liveProgress }
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: 0) {
+      HStack(alignment: .top) {
+        VStack(alignment: .leading, spacing: 7) {
+          Text(verbatim: "Uduo")
+            .font(.system(size: 36, weight: .semibold, design: .rounded))
+          Text("Your desktop follows your lid.")
+            .font(.system(size: 14))
+            .foregroundStyle(Studio.ink.opacity(0.65))
+        }
+        Spacer()
+        Button(action: showAbout) {
+          Image(systemName: "info")
+            .font(.system(size: 16, weight: .medium))
+            .frame(width: 40, height: 40)
+            .background(.white, in: Circle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(Text("About Uduo"))
+      }
+      HStack(spacing: 7) {
+        Circle().fill(isDemonstrating ? Studio.ink : (available ? .green : .gray))
+          .frame(width: 6, height: 6)
+        Text(isDemonstrating ? "Demo preview" : "Live preview")
+          .font(.system(size: 11, weight: .medium))
+      }
+      .padding(.horizontal, 12)
+      .padding(.vertical, 8)
+      .background(.white, in: Capsule())
+      .padding(.top, 23)
+      FoldShowcase(progress: progress, active: active || isDemonstrating)
+        .frame(width: 448, height: 290)
+        .padding(.horizontal, -12)
+        .animation(reduceMotion ? nil : .smooth(duration: 0.18), value: liveProgress)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Text("Fold preview"))
+        .accessibilityValue(Text(verbatim: "\(Int(progress * 100))%"))
+      HStack(spacing: 12) {
+        metric(
+          title: String(localized: "Live lid angle"),
+          value: available ? lid.degrees.map(degrees) ?? "…" : "…",
+          symbol: "angle", highlighted: false)
+        metric(
+          title: String(localized: "Fold preview"), value: "\(Int(progress * 100))%",
+          symbol: "rectangle.compress.vertical", highlighted: true)
+      }
+      .padding(.top, 2)
+      Spacer(minLength: 18)
+      HStack {
+        Button(action: toggleDemo) {
+          Label(isDemonstrating ? "Back to live" : "Play demo",
+            systemImage: isDemonstrating ? "arrow.uturn.backward" : "play.fill")
+        }
+        .buttonStyle(StudioPillStyle(light: true))
+        Spacer()
+        Text(verbatim: "v\(version)")
+          .font(.system(size: 11))
+          .foregroundStyle(Studio.ink.opacity(0.5))
+      }
+      HStack(spacing: 5) {
+        Text("Illustrative preview")
+        Text(verbatim: "·")
+        Text(isDemonstrating ? "Demo does not change your settings." : "Preview follows your lid.")
+      }
+      .font(.system(size: 11))
+      .foregroundStyle(Studio.ink.opacity(0.6))
+      .padding(.top, 12)
+    }
+    .foregroundStyle(Studio.ink)
+    .padding(.horizontal, 30)
+    .padding(.top, 24)
+    .padding(.bottom, 24)
+    .onDisappear { stopDemo() }
+    .onChange(of: reduceMotion) { if reduceMotion { stopDemo() } }
+  }
+
+  private func metric(title: String, value: String, symbol: String, highlighted: Bool) -> some View {
+    VStack(alignment: .leading, spacing: 14) {
+      HStack {
+        Image(systemName: symbol).font(.system(size: 15))
+        Spacer()
+        Group {
+          if highlighted {
+            PreviewPercentage(progress: progress)
+          } else {
+            Text(value)
+          }
+        }
+        .font(.system(size: 28, weight: .medium, design: .rounded))
+        .monospacedDigit()
+      }
+      Text(title).font(.system(size: 12, weight: .medium))
+    }
+    .padding(19)
+    .frame(maxWidth: .infinity, alignment: .leading)
+    .background(highlighted ? Studio.acid : .white,
+      in: RoundedRectangle(cornerRadius: 26, style: .continuous))
+    .accessibilityElement(children: .combine)
+    .jellyCardDragHandle()
+    .jellyCard()
+  }
+
+  private func toggleDemo() {
+    if isDemonstrating { stopDemo(); return }
+    demoProgress = liveProgress
+    isDemonstrating = true
+    demoTask = Task { @MainActor in
+      do {
+        withAnimation(reduceMotion ? nil : .easeInOut(duration: 1.35)) { demoProgress = 1 }
+        try await Task.sleep(nanoseconds: 1_650_000_000)
+        try Task.checkCancellation()
+        withAnimation(reduceMotion ? nil : .easeInOut(duration: 1.65)) { demoProgress = 0 }
+        try await Task.sleep(nanoseconds: 1_950_000_000)
+        try Task.checkCancellation()
+        withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.5)) { demoProgress = liveProgress }
+        try await Task.sleep(nanoseconds: 550_000_000)
+        try Task.checkCancellation()
+        isDemonstrating = false
+        demoTask = nil
+      } catch {}
+    }
+  }
+
+  private func stopDemo() {
+    demoTask?.cancel()
+    demoTask = nil
+    isDemonstrating = false
+  }
+}
+
+private struct PreviewPercentage: View, Animatable {
+  var progress: Double
+
+  var animatableData: Double {
+    get { progress }
+    set { progress = newValue }
+  }
+
+  var body: some View {
+    Text(verbatim: "\(Int(progress * 100))%")
+  }
+}
+
+private struct StudioPowerStyle: ToggleStyle {
+  let status: String
+
+  func makeBody(configuration: Configuration) -> some View {
+    Button { configuration.isOn.toggle() } label: {
+      HStack(spacing: 14) {
+        Image(systemName: "power")
+          .font(.system(size: 20, weight: .medium))
+          .frame(width: 46, height: 46)
+          .background(configuration.isOn ? Studio.ink : Color.white.opacity(0.08), in: Circle())
+          .foregroundStyle(configuration.isOn ? Studio.acid : .white)
+        VStack(alignment: .leading, spacing: 5) {
+          configuration.label.font(.system(size: 19, weight: .semibold))
+          Text(status).font(.system(size: 12)).opacity(0.7)
+        }
+        Spacer(minLength: 0)
+        Image(systemName: configuration.isOn ? "checkmark" : "minus")
+          .font(.system(size: 15, weight: .medium))
+      }
+      .padding(20)
+      .frame(maxWidth: .infinity, alignment: .leading)
+      .foregroundStyle(configuration.isOn ? Studio.ink : .white)
+      .background(configuration.isOn ? Studio.acid : Studio.card,
+        in: RoundedRectangle(cornerRadius: 28, style: .continuous))
+      .contentShape(RoundedRectangle(cornerRadius: 28))
+    }
+    .buttonStyle(.plain)
+    .accessibilityValue(Text(configuration.isOn ? "On" : "Off"))
+  }
+}
+
+private struct StudioPillStyle: ButtonStyle {
+  var light = false
+  @Environment(\.isEnabled) private var isEnabled
+
+  func makeBody(configuration: Configuration) -> some View {
+    configuration.label
+      .font(.system(size: 12, weight: .medium))
+      .padding(.horizontal, 16)
+      .padding(.vertical, 11)
+      .foregroundStyle(light ? Studio.ink : .white)
+      .background(light ? Color.white : Studio.card, in: Capsule())
+      .opacity(isEnabled ? (configuration.isPressed ? 0.65 : 1) : 0.4)
+      .contentShape(Capsule())
   }
 }
 
@@ -193,8 +478,8 @@ extension LiveDesktop {
       return String(localized: "Waiting for the built-in display to turn on.")
     }
     if !sensorAvailable { return String(localized: "Waiting for the lid angle sensor.") }
-    if isEnabled { return String(localized: "Softfold is on but not running yet.") }
-    return String(localized: "Turn Softfold on to follow the lid.")
+    if isEnabled { return String(localized: "Uduo is on but not running yet.") }
+    return String(localized: "Turn Uduo on to follow the lid.")
   }
 }
 

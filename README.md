@@ -1,95 +1,85 @@
 <div align="center">
 
-<img src="docs/icon.png" width="128" height="128" alt="Softfold" />
+# Uduo
 
-# Softfold
+**Your MacBook moves. Your desktop follows.**
 
-**Close the lid, and your desktop folds away softly.**
+A small macOS app that turns opening and closing your screen into a live desktop effect.
 
-<a href="https://github.com/ReffWu/softfold/releases/latest/download/Softfold.dmg">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/readme/download-en-dark.png">
-    <img src="docs/readme/download-en-light.png" height="52" alt="Download for Mac">
-  </picture>
-</a>
+[Download for Mac](https://github.com/Youdao-vibecoding/Uduo/releases/latest) · [简体中文](README.zh-CN.md) · [Build from source](BUILD.md)
 
-<sub>Free · MacBook with Apple silicon · macOS 14 or later · Notarized by Apple</sub>
-
-<sub>If you like Softfold, a ⭐ on GitHub helps more people discover it.</sub>
-
-English · [简体中文](README.zh-CN.md) · [繁體中文](README.zh-TW.md) · [日本語](README.ja.md) · [한국어](README.ko.md)
+Free and open source · macOS 14+ · Compatible Apple silicon MacBooks
 
 </div>
 
-<p align="center">
-  <img src="docs/readme/hero-en.png" alt="Close the lid, and your desktop folds away softly.">
-</p>
+![Uduo illustrated fold preview](docs/demo.gif)
 
----
+<details>
+<summary>See the three fold states</summary>
 
-Softfold follows your MacBook's hinge. As you lower the screen, your live desktop tilts back with it, blurs from the top down and fades into the dark edges. Lift it again and everything comes back, sharp and exactly where you left it.
+![Interface preview of Uduo's fold illustration and controls](docs/preview-en.png)
 
-## Download
+</details>
 
-[Download Softfold.dmg](https://github.com/ReffWu/softfold/releases/latest/download/Softfold.dmg), open it and drag Softfold into Applications. The app is signed with a Developer ID and notarized by Apple, so it opens like any other app.
+<sub>Interface preview. The desktop shown is an illustration, not a screen recording.</sub>
 
-On first launch, allow Screen Recording, reopen Softfold if macOS asks, and turn it on. It turns itself back on the next time you open it, and starts with your Mac from then on.
+Lower the lid and your desktop folds, softens, and darkens toward the edges. Lift it and the motion reverses. Uduo follows the lid in both directions, including when you pause halfway and start moving again.
 
-The first time you turn Softfold on, it takes the open angle from your lid. To change it later, hold the lid where you like it and click **Use Current Angle**. <kbd>⌃</kbd> <kbd>⌥</kbd> <kbd>H</kbd> turns it on or off from anywhere.
+## Make it move your way
 
-## Which MacBooks work
+- **Keep the fold when you pause.** Leave the effect in place until you lift the screen, or choose to let the desktop sharpen when movement stops.
+- **Set the starting angle.** Click or drag the 25–120° ruler. Changes save immediately; you can also use your screen's current angle.
+- **Try it without moving your Mac.** Play the interactive preview once, then return to live readings. The preview uses an illustration and does not change your settings.
+- **A little give in the controls.** Drag a card's empty area and it stretches, tilts, and springs back. Buttons and the ruler stay independent. Reduce Motion turns this movement off.
+- **Keep it close.** Choose a Dock icon, a menu bar icon, or both. Use **Control + Option + Shift + H** to toggle the desktop effect.
 
-Softfold needs the lid angle sensor that Apple added in 2019, exposed on Apple silicon through the sensor coprocessor, plus macOS 14 or later. If your Mac has no sensor, Softfold tells you.
+The live desktop and the illustrated preview both show progressive blur and darkened edges. The preview is a demonstration, not a second screen capture or an exact measurement of the rendered effect.
 
-| Status | Models |
+## Install
+
+1. Download the DMG from the [latest release](https://github.com/Youdao-vibecoding/Uduo/releases/latest).
+2. Open it and drag **Uduo** into **Applications**.
+3. Open Uduo, allow **Screen Recording** in System Settings, and restart the app if macOS asks.
+4. Turn on the desktop effect and lower the screen a little.
+
+**Signing status:** Uduo 1.0.0 has an ad-hoc signature. It is not Developer ID signed or notarized by Apple. macOS may block the first launch. If you trust the release, follow Apple's [instructions for opening an app from an unknown developer](https://support.apple.com/en-nz/guide/mac-help/mh40616/mac) in **System Settings → Privacy & Security**.
+
+Screen Recording lets Uduo draw the effect from your desktop. Frames stay in memory on your Mac; Uduo does not save or upload them. Replacing an ad-hoc signed build may require granting this permission again.
+
+## Before downloading
+
+Uduo needs **macOS 14 or later**, an **Apple silicon MacBook**, and a **compatible lid angle sensor**. Apple silicon alone does not guarantee compatibility. The desktop effect uses the built-in display; an external monitor cannot provide the missing sensor.
+
+If the app reports that it is waiting for the sensor, your model may not expose the readings Uduo needs. You can still try the illustrated preview. Compatibility reports are welcome: include the Mac model and macOS version in an [issue](https://github.com/Youdao-vibecoding/Uduo/issues/new).
+
+## Controls
+
+| Action | Control |
 | --- | --- |
-| Works, confirmed by users | 14 and 16 inch MacBook Pro with M1 Pro or M1 Max (2021), M2 Max (2023), M3 Pro or M3 Max (2023), M4 Pro or M4 Max (2024). MacBook Air with M4 (2025) or M5 |
-| Has the sensor, not confirmed yet | 14 inch MacBook Pro with M3, M4 or M5. 14 and 16 inch MacBook Pro with M5 Pro or M5 Max. MacBook Air with M2 or M3 |
-| Not supported | MacBook Air with M1, every 13 inch MacBook Pro (Intel, M1 and M2), Intel MacBook Pro, 12 inch MacBook, MacBook Neo, desktop Macs |
+| Toggle the desktop effect | Control + Option + Shift + H |
+| Set when folding begins | Click or drag the 25–120° ruler |
+| Adjust the focused ruler | Arrow keys: 1°; Shift + arrow keys: 5° |
+| Jump to either end | Home: 25°; End: 120° |
+| Quit completely | Quit App or Command + Q |
 
-The 2019 16 inch MacBook Pro has the sensor too, but the released app is built for Apple silicon only.
+Closing the window leaves the effect running. Open Uduo again to bring its controls back. If you already run Softfold or another desktop-folding app, quit it before enabling Uduo.
 
-Not sure? Run this in Terminal. A line that ends in `las` means Softfold can read your lid:
+## Privacy and updates
 
-```sh
-hidutil list --matching '{"VendorID":0x5ac,"PrimaryUsagePage":32,"PrimaryUsage":138}'
-```
+No telemetry, no automatic updates, and no automatic launch-at-login registration. New versions are downloaded manually from this repository's releases. Uduo requests no Accessibility permission for its decorative card movement.
 
-Tried it on a model in the middle row? [Tell us how it went](https://github.com/ReffWu/softfold/issues).
+The app is built with SwiftUI, AppKit, ScreenCaptureKit, and Metal. Its spring interactions use APIs available in the macOS 14.2 SDK, not the newer Liquid Glass APIs. This release does not add a high-frame-rate rendering mode.
 
-## How it works
+## Build, report, contribute
 
-Softfold reads the lid angle over IOKit HID in hundredths of a degree where the sensor reports them, following the sensor's own refresh cadence instead of polling blindly. A critically damped filter turns those readings into continuous motion. Slow tilt, slow fold. Quick tilt, quick fold. Stop partway for a second and the desktop eases back into focus, then folds again as soon as you keep closing.
+See [BUILD.md](BUILD.md) for a source build, [CHECKS.md](CHECKS.md) for validation, and [MOTION.md](MOTION.md) for the rendering and motion model.
 
-ScreenCaptureKit supplies the live desktop, and Metal renders the perspective, the progressive blur and the side fill at 60 fps. Capture only runs while the lid is closing or folded and stops a few seconds after it opens again, which also clears the screen recording indicator. Frames stay in memory on your Mac and are never recorded or uploaded. Once a day Softfold sends an anonymous heartbeat with a random install ID, the app and macOS versions, the Mac model and whether the fold was used that day, so we can count active Macs. No screen content, files, IP addresses or personal information are stored. Turn off Share anonymous usage statistics in the Softfold window to stop it.
+Found a problem? Describe what the lid was doing, what appeared on screen, and your Mac model. A short recording helps, as long as it contains nothing private. Improvements to compatibility, accessibility, and translations are welcome.
 
-The full motion design is in [MOTION.md](MOTION.md).
+If Uduo makes your Mac a little more fun, give it a star.
 
-## Languages
+## Credits and license
 
-English, Simplified Chinese, Traditional Chinese, Japanese, Korean, German, French, Spanish, Italian, Brazilian Portuguese, Russian, Dutch, Turkish, Polish, Arabic and Vietnamese. Softfold follows your Mac's language, or pick one in the Softfold window.
+Uduo is an independent derivative of [Softfold](https://github.com/ReffWu/softfold) by **Reff Wu**, based on upstream v1.16. Softfold began as a fork of [Hinge](https://github.com/Noveum/hinge) by **Noveum.ai**. The lid sensor's HID identifiers and report layout were documented by [LidAngleSensor](https://github.com/samhenrigold/LidAngleSensor).
 
-## Build from source
-
-Install Xcode, then:
-
-```sh
-git clone https://github.com/ReffWu/softfold.git
-cd softfold
-make build
-open build/Softfold.app
-```
-
-Development checks are described in [CHECKS.md](CHECKS.md), and signed releases in [RELEASE.md](RELEASE.md).
-
-## Contributing
-
-Ideas, bug reports and pull requests are welcome. [Open an issue](https://github.com/ReffWu/softfold/issues) or send a PR.
-
-## Credits
-
-Softfold began as a fork of [Hinge](https://github.com/Noveum/hinge) by Noveum.ai, released under the MIT License. The lid sensor's HID identifiers and report layout were first documented by [LidAngleSensor](https://github.com/samhenrigold/LidAngleSensor).
-
-## License
-
-[MIT](LICENSE)
+Released under the [MIT License](LICENSE). The upstream copyright notices are preserved. Uduo is not an official Softfold release.

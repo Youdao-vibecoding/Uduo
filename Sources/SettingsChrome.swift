@@ -3,11 +3,10 @@ import SwiftUI
 
 enum SettingsMetrics {
   static let groupSpacing: CGFloat = 22
-  static let cardCorner: CGFloat = 12
-  static let rowPaddingH: CGFloat = 14
-  static let rowPaddingV: CGFloat = 11
-  static let iconSize: CGFloat = 26
-  static let iconCorner: CGFloat = 6.5
+  static let cardCorner: CGFloat = 18
+  static let rowPaddingH: CGFloat = 16
+  static let rowPaddingV: CGFloat = 13
+  static let iconSize: CGFloat = 22
   static let dividerInset: CGFloat = rowPaddingH + iconSize + 11
 }
 
@@ -17,24 +16,19 @@ struct SettingsGroup<Content: View>: View {
   @ViewBuilder let content: Content
 
   var body: some View {
-    VStack(alignment: .leading, spacing: 7) {
+    VStack(alignment: .leading, spacing: 9) {
       if let title {
         Text(title)
           .font(.system(size: 12, weight: .semibold))
           .foregroundStyle(.secondary)
-          .padding(.leading, 2)
+          .padding(.leading, 4)
       }
       VStack(spacing: 0) { content }
-        .background(Color(nsColor: .controlBackgroundColor))
-        .clipShape(RoundedRectangle(cornerRadius: SettingsMetrics.cardCorner, style: .continuous))
-        .overlay(
-          RoundedRectangle(cornerRadius: SettingsMetrics.cardCorner, style: .continuous)
-            .strokeBorder(Color.primary.opacity(0.07), lineWidth: 1)
-        )
+        .background(SettingsSurface())
       if let footnote {
         Text(footnote)
           .font(.system(size: 11))
-          .foregroundStyle(.tertiary)
+          .foregroundStyle(.secondary)
           .fixedSize(horizontal: false, vertical: true)
           .padding(.leading, 2)
           .padding(.top, 1)
@@ -48,14 +42,12 @@ struct SettingsIcon: View {
   var tint = Color.accentColor
 
   var body: some View {
-    RoundedRectangle(cornerRadius: SettingsMetrics.iconCorner, style: .continuous)
-      .fill(tint.gradient)
+    Image(systemName: symbol)
+      .font(.system(size: 16, weight: .regular))
+      .symbolRenderingMode(.hierarchical)
+      .foregroundStyle(symbol == "exclamationmark.triangle.fill" ? tint : .secondary)
       .frame(width: SettingsMetrics.iconSize, height: SettingsMetrics.iconSize)
-      .overlay(
-        Image(systemName: symbol)
-          .font(.system(size: SettingsMetrics.iconSize * 0.55, weight: .semibold))
-          .foregroundStyle(.white)
-      )
+      .accessibilityHidden(true)
   }
 }
 
@@ -71,11 +63,11 @@ struct SettingsRow<Leading: View, Trailing: View>: View {
         .frame(width: SettingsMetrics.iconSize, height: SettingsMetrics.iconSize)
       VStack(alignment: .leading, spacing: 2) {
         Text(title)
-          .font(.system(size: 13))
+          .font(.system(size: 13, weight: .medium))
           .fixedSize(horizontal: false, vertical: true)
         if let subtitle {
           Text(subtitle)
-            .font(.system(size: 11))
+            .font(.system(size: 12))
             .foregroundStyle(.secondary)
             .fixedSize(horizontal: false, vertical: true)
         }
@@ -85,6 +77,62 @@ struct SettingsRow<Leading: View, Trailing: View>: View {
     }
     .padding(.horizontal, SettingsMetrics.rowPaddingH)
     .padding(.vertical, SettingsMetrics.rowPaddingV)
+  }
+}
+
+struct SettingsSurface: View {
+  @Environment(\.colorScheme) private var colorScheme
+  @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
+  var body: some View {
+    RoundedRectangle(cornerRadius: SettingsMetrics.cardCorner, style: .continuous)
+      .fill(
+        Color(nsColor: .controlBackgroundColor)
+          .opacity(reduceTransparency ? 1 : (colorScheme == .dark ? 0.78 : 0.76))
+      )
+      .overlay {
+        RoundedRectangle(cornerRadius: SettingsMetrics.cardCorner, style: .continuous)
+          .strokeBorder(.primary.opacity(colorScheme == .dark ? 0.09 : 0.045), lineWidth: 0.5)
+      }
+  }
+}
+
+struct SettingsWindowMaterial: NSViewRepresentable {
+  func makeNSView(context: Context) -> NSVisualEffectView {
+    let view = NSVisualEffectView()
+    view.material = .underWindowBackground
+    view.blendingMode = .behindWindow
+    view.state = .followsWindowActiveState
+    return view
+  }
+
+  func updateNSView(_ view: NSVisualEffectView, context: Context) {}
+}
+
+struct CapsuleActionStyle: ButtonStyle {
+  var emphasized = false
+  @Environment(\.isEnabled) private var isEnabled
+  @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
+  func makeBody(configuration: Configuration) -> some View {
+    configuration.label
+      .font(.system(size: 12, weight: .medium))
+      .foregroundStyle(emphasized ? Color.accentColor : Color.primary)
+      .padding(.horizontal, 12)
+      .padding(.vertical, 6)
+      .background {
+        if reduceTransparency {
+          Capsule().fill(Color(nsColor: .controlBackgroundColor))
+        } else {
+          Capsule().fill(.regularMaterial)
+        }
+      }
+      .overlay {
+        Capsule().strokeBorder(.primary.opacity(0.08), lineWidth: 0.5)
+      }
+      .brightness(configuration.isPressed ? -0.05 : 0)
+      .opacity(isEnabled ? 1 : 0.4)
+      .contentShape(Capsule())
   }
 }
 
