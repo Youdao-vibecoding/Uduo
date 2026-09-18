@@ -14,4 +14,4 @@ test:
 	bash Tests/run-wake-tests.sh
 
 icon:
-	python3 scripts/make-icon.py
+	bash scripts/render-brand-assets.sh
