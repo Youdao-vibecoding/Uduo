@@ -5,11 +5,10 @@ Run the checks that match the change, then verify the built app. A successful co
 ## Motion and lifecycle tests
 
 ```sh
-bash Tests/run-motion-tests.sh
-bash Tests/run-wake-tests.sh
+make test
 ```
 
-The motion suite covers 14 cases, including opening, closing, direction reversal, sensor cadence, and the 25–120° baseline limits. The callback suite checks 34 lifecycle conditions against the gate extracted from `LiveDesktop.swift`, including rejection of readings from an earlier session.
+This runs `Tests/run-motion-tests.sh` and `Tests/run-wake-tests.sh`. The motion suite covers 14 cases, including opening, closing, direction reversal, sensor cadence, and the 25–120° baseline limits. The callback suite checks 34 lifecycle conditions against the gate extracted from `LiveDesktop.swift`, including rejection of readings from an earlier session.
 
 `SWIFTC` and `SDKROOT` may be set to select the compiler and SDK. A full Xcode installation is needed to build the application:
 
@@ -29,23 +28,28 @@ bash scripts/build.sh
 
 Record the hardware and macOS version alongside the observations. Synthetic timing is not physical lid-to-screen latency; do not turn a local measurement into a claim about all Macs.
 
-## Repository checks
+## Current CI checks
 
-The repository includes the upstream tracked-file check tools. Their scope includes text-file policy, Swift and shell linting, Python formatting, configuration parsing, and link validation.
+[The workflow](.github/workflows/checks.yml) runs on `macos-26` with Python 3.13 and read-only repository permissions. Its required steps are the tracked-file policy check, shell syntax checks, both test suites, and an ad-hoc signed build and DMG package. It does not publish release artifacts.
+
+To run the same checks from the repository root:
 
 ```sh
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r scripts/requirements.txt
-npm ci
-brew install actionlint shellcheck lychee yamllint swift-format
-npm run check
-npm run check:native
-npm run check:links
+python3 scripts/check.py policy
+for script in scripts/*.sh Tests/*.sh; do
+  bash -n "$script"
+done
+make test
+CODE_SIGN_IDENTITY=- make package
 ```
 
-These tools inspect `git ls-files`; newly added files must be included in Git's index to be checked. Tool availability and the CI environment can differ from a developer's Mac. Report the checks actually run, and report failures or unavailable tools explicitly.
+The policy check inspects `git ls-files`; newly added files must be included in Git's index to be checked. The loop checks every shell file separately. Passing several filenames to a single `bash -n` invocation would check only the first script.
 
-The text policy excludes comments and docstrings in code, Markdown comments, and em dashes. It also requires explicit classification of tracked file types. The source tree retains this upstream policy; it is not a claim that every upstream CI check has passed for a release.
+The text policy excludes comments and docstrings in code, Markdown comments, and em dashes. It also validates supported resource signatures and configuration formats, and requires explicit classification of tracked file types.
+
+Additional upstream lint and link-checking tools remain in the repository, but they are optional and are not part of this CI workflow. Node, npm, and Homebrew check tools are not required for the checks above. Report the checks actually run, and report failures or unavailable tools explicitly.
 
 Release artifacts need separate checks described in [RELEASE.md](RELEASE.md).

@@ -6,7 +6,7 @@ Uduo 1.0.0 targets Apple silicon and macOS 14 or later. A compatible lid angle s
 
 - An Apple silicon Mac with the full Xcode toolchain installed and its license accepted.
 - Swift 5.9 or later and a macOS SDK with SwiftUI, ScreenCaptureKit, Metal, and string-catalog tooling. The app supports a macOS 14.2 SDK build.
-- Python 3 for the sensor callback tests. The optional repository checks have additional dependencies described in [CHECKS.md](CHECKS.md).
+- Python 3 for the sensor callback tests. The tracked-file policy check uses the Python dependencies in `scripts/requirements.txt`; see [CHECKS.md](CHECKS.md). The app build does not require Node, npm, or Homebrew check tools.
 
 ## Build and package
 
@@ -51,11 +51,10 @@ The preview's demonstration is separate from live settings. The angle range is 2
 ## Validation
 
 ```sh
-bash Tests/run-motion-tests.sh
-bash Tests/run-wake-tests.sh
+make test
 ```
 
-These suites contain 14 motion cases and 34 sensor callback lifecycle checks. They test the state and motion rules, not physical sensor-to-screen latency. Hardware checks for permission changes, lid reversal, sleep/wake, fullscreen Spaces, and external-display use are described in [CHECKS.md](CHECKS.md).
+This runs the two shell test scripts in `Tests/`, containing 14 motion cases and 34 sensor callback lifecycle checks. They test the state and motion rules, not physical sensor-to-screen latency. The current CI also runs the Python policy check, checks each shell script's syntax, and runs `CODE_SIGN_IDENTITY=- make package`. Hardware checks and complete local commands are described in [CHECKS.md](CHECKS.md).
 
 ## Upstream
 
